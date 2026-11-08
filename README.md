@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# הפעילו — פלטפורמת ההפעלות לילדים
 
-## Getting Started
+מרקטפלייס שמחבר בין הורים, בתי ספר ומוסדות לבין מפעילי הפעלות לילדים: חיפוש לפי תאריך, גיל, אזור ותקציב, בקשת הזמנה שהמפעיל מאשר, תשלום מקדמה ודירוג אחרי האירוע.
 
-First, run the development server:
+זו גרסת אב־טיפוס מלאה (כל 17 המסכים מהאפיון) שרצה בדפדפן בלבד. כל הנתונים הם נתוני הדגמה שנשמרים ב־`localStorage`, כך שאפשר לעבור את כל התהליך מקצה לקצה בלי שרת.
+
+## שלושה צדדים, מצב אחד
+
+| צד | נתיבים |
+| --- | --- |
+| לקוחות | `/` · `/search` · `/operators/[slug]` · `/book/[slug]` · `/bookings` · `/pay/[id]` · `/rate/[id]` · `/institutions` |
+| מפעילים | `/operator/join` · `/operator` · `/operator/requests` · `/operator/calendar` · `/operator/profile` · `/operator/income` · `/operator/reviews` · `/operator/settings` |
+| ניהול | `/admin` · `/admin/bookings` · `/admin/approvals` · `/admin/catalog` |
+
+התהליך המלא להדגמה:
+
+1. לקוח שולח בקשה ל־Water Battle מתוך `/operators/water-battle`.
+2. ב־`/operator/requests` המפעיל מאשר (או מציע מועד אחר / דוחה). שתי בקשות חופפות לא יכולות להיות מאושרות יחד.
+3. ב־`/bookings` הלקוח רואה "ממתינה לתשלום" ומשלם מקדמה ב־`/pay/[id]`.
+4. בלוח הבקרה של המפעיל מסמנים "הושלמה", והלקוח מדרג ב־`/rate/[id]`. הביקורת מופיעה בכרטיס המפעיל.
+
+"איפוס" בתחתית האתר מחזיר את נתוני ההדגמה להתחלה.
+
+## טכנולוגיה
+
+- Next.js 16 (App Router) · React 19 · TypeScript
+- Tailwind CSS 4 עם טוקנים סמנטיים לבהיר/כהה (`src/app/globals.css`)
+- Zustand לניהול המצב המשותף (`src/lib/store.ts`)
+- עברית RTL, גופן Heebo, אייקונים של Lucide
+
+## פיתוח
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev      # http://localhost:3000
+npm run build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## מבנה
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+src/lib/data.ts        מודל הנתונים: קטגוריות, מפעילים, חבילות, הזמנות וסטטוסים
+src/lib/store.ts       המצב המשותף ופעולות ההזמנה (אישור, תשלום, דירוג…)
+src/components/        רכיבי UI, ה־StatusTrack, גיליונות (dialog), ניווט לכל צד
+src/app/(site)         האתר ללקוחות
+src/app/(flow)         תהליכים ממוקדים: הזמנה, תשלום, דירוג
+src/app/operator       הצטרפות ואזור המפעילים
+src/app/admin          מערכת הניהול
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## מה נדרש לפני השקה
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- מסד נתונים ו־API במקום `localStorage` (המבנה ב־`data.ts` מוכן להפוך לסכמה)
+- הרשמה והתחברות ללקוחות, למפעילים ולצוות
+- ספק סליקה שתומך במודל מרקטפלייס ופיצול תשלומים
+- התראות וואטסאפ / SMS / אימייל
+- העלאת קבצים אמיתית למסמכים ולתמונות, עם בדיקה ידנית
+- נוסח משפטי לתנאי שימוש, מדיניות ביטולים ופרטיות

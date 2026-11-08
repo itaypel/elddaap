@@ -1,26 +1,227 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+  Design tokens — הפעילו
+  Contrast (WCAG, against --card #FFFFFF unless noted):
+    ink #16161A ............ 18.1:1
+    muted #5E5E6B .......... 6.4:1  (5.9:1 on --bg)
+    subtle #73737F ......... 4.7:1  (placeholder / meta only)
+    accent-ink #4343B8 ..... 7.7:1  (links, active labels; 6.6:1 on --accent-soft)
+    white on accent #5B5BD6  5.4:1  (filled buttons)
+    success #1E7A4C on #E7F5EE 4.8:1
+    warning #8A5300 on #FDF2DC 5.7:1
+    danger  #B42318 ........ 6.6:1
+  Dark values are checked against --card #18181D.
+*/
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+:root {
+  --bg: #f5f5f7;
+  --card: #ffffff;
+  --elevated: #ffffff;
+  --sunken: #f3f3f6;
+  --line: #e6e6ec;
+  --line-strong: #d4d4dd;
+  --ink: #16161a;
+  --muted: #5e5e6b;
+  --subtle: #73737f;
+  --accent: #5b5bd6;
+  --accent-hover: #4d4dc8;
+  --accent-ink: #4343b8;
+  --accent-soft: #eeeefc;
+  --accent-line: #c9c9f3;
+  --contrast: #16161a; /* dark surfaces: operator CTA, compare bar */
+  --on-contrast: #ffffff;
+  --success: #1e7a4c;
+  --success-soft: #e7f5ee;
+  --warning: #8a5300;
+  --warning-soft: #fdf2dc;
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+  --star: #e8a20c;
+  --shadow: 0 1px 2px rgb(22 22 26 / 0.04), 0 8px 24px -12px rgb(22 22 26 / 0.12);
+  --shadow-lg: 0 2px 6px rgb(22 22 26 / 0.05), 0 24px 48px -20px rgb(22 22 26 / 0.22);
+  --tint-mix: 100%;
+  color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:not([data-theme="light"]) {
+    --bg: #0e0e12;
+    --card: #18181d;
+    --elevated: #202027;
+    --sunken: #131317;
+    --line: #2a2a33;
+    --line-strong: #3a3a45;
+    --ink: #f2f2f5;
+    --muted: #a6a6b3;
+    --subtle: #8b8b97;
+    --accent: #5b5bd6;
+    --accent-hover: #6a6ae0;
+    --accent-ink: #a5a5f5;
+    --accent-soft: #25254a;
+    --accent-line: #3f3f86;
+    --contrast: #f2f2f5;
+    --on-contrast: #16161a;
+    --success: #5fd09a;
+    --success-soft: #133524;
+    --warning: #f0b955;
+    --warning-soft: #3a2a0c;
+    --danger: #ff8a7e;
+    --danger-soft: #3d1714;
+    --star: #f4b740;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-lg: 0 24px 48px -20px rgb(0 0 0 / 0.7);
+    --tint-mix: 18%;
+    color-scheme: dark;
   }
 }
 
+:root[data-theme="dark"] {
+  --bg: #0e0e12;
+  --card: #18181d;
+  --elevated: #202027;
+  --sunken: #131317;
+  --line: #2a2a33;
+  --line-strong: #3a3a45;
+  --ink: #f2f2f5;
+  --muted: #a6a6b3;
+  --subtle: #8b8b97;
+  --accent-ink: #a5a5f5;
+  --accent-soft: #25254a;
+  --accent-line: #3f3f86;
+  --contrast: #f2f2f5;
+  --on-contrast: #16161a;
+  --success: #5fd09a;
+  --success-soft: #133524;
+  --warning: #f0b955;
+  --warning-soft: #3a2a0c;
+  --danger: #ff8a7e;
+  --danger-soft: #3d1714;
+  --tint-mix: 18%;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-elevated: var(--elevated);
+  --color-sunken: var(--sunken);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-line: var(--accent-line);
+  --color-contrast: var(--contrast);
+  --color-on-contrast: var(--on-contrast);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-star: var(--star);
+  --font-sans: var(--font-heebo), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  --shadow-card: var(--shadow);
+  --shadow-float: var(--shadow-lg);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Numbers line up in tables, prices and dates */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Category tint: pale in light mode, a low-alpha wash of the hue in dark mode */
+.tint {
+  background: color-mix(in srgb, var(--tint) var(--tint-mix), var(--card));
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .tint {
+    background: color-mix(in srgb, var(--hue) 18%, var(--card));
+  }
+}
+:root[data-theme="dark"] .tint {
+  background: color-mix(in srgb, var(--hue) 18%, var(--card));
+}
+
+/* Visible keyboard focus everywhere, never on mouse click */
+:focus-visible {
+  outline: 2.5px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+::placeholder {
+  color: var(--subtle);
+  opacity: 1;
+}
+
+input[type="date"],
+input[type="time"] {
+  min-height: 44px;
+}
+
+/* Hide scrollbars on horizontal chip rails while keeping them scrollable */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Safe-area padding for the mobile tab bar */
+.pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), 0px);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-rise {
+  animation: rise 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: var(--card) !important;
+  }
 }
