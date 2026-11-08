@@ -116,7 +116,7 @@ export default function CalendarPage() {
                   >
                     <span className="text-[15px] font-bold tabular">{c.day}</span>
                     <span className="hidden flex-col gap-1 sm:flex">
-                      {blockedDay && <span className="truncate rounded-md bg-line px-1.5 py-0.5 text-[12px] font-semibold text-muted">{VACATION.includes(c.date) ? "חסום · חופשה" : "חסום"}</span>}
+                      {blockedDay && <span className="truncate rounded-md bg-line px-1.5 py-0.5 text-[12px] font-semibold text-muted">{VACATION.includes(c.date) ? "חופשה" : "חסום"}</span>}
                       {full && !blockedDay ? (
                         <span className="truncate rounded-md bg-accent px-1.5 py-0.5 text-[12px] font-semibold text-white">מלא · {approved} אירועים</span>
                       ) : (

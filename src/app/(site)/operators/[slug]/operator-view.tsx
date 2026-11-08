@@ -11,6 +11,7 @@ import {
   durationText,
   locationTypes,
   money,
+  pre,
   shortDate,
   takenSlots,
 } from "@/lib/data";
@@ -422,7 +423,7 @@ export function OperatorView({ slug }: { slug: string }) {
 
         {/* Booking widget — regular width */}
         <aside aria-label="הזמנה" className="hidden lg:block">
-          <Card className="sticky top-20 p-5 shadow-card">{widget("side")}</Card>
+          <Card className="sticky top-20 max-h-[calc(100dvh-6rem)] overflow-y-auto overscroll-contain p-5 shadow-card">{widget("side")}</Card>
         </aside>
       </div>
 
@@ -462,7 +463,7 @@ function AskSheet({ op, open, onClose }: { op: Operator; open: boolean; onClose:
     <Sheet
       open={open}
       onClose={onClose}
-      title={`שאלה ל${op.name}`}
+      title={`שאלה ${pre("ל", op.name)}`}
       footer={
         <Button
           className="w-full"

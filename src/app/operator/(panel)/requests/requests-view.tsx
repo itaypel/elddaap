@@ -15,6 +15,7 @@ import {
   operatorBySlug,
   overlaps,
   packageOf,
+  pre,
   shortDate,
   statusMeta,
   weekday,
@@ -296,7 +297,7 @@ function RequestDetail({ b, all }: { b: Booking; all: Booking[] }) {
       <Sheet
         open={msgOpen}
         onClose={() => setMsgOpen(false)}
-        title={`הודעה ל${b.customerName}`}
+        title={`הודעה ${pre("ל", b.customerName)}`}
         footer={
           <Button
             className="w-full"

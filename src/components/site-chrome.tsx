@@ -47,14 +47,16 @@ export function SiteHeader() {
           <Link href="/operator/join" className="hidden min-h-10 items-center rounded-lg px-2 text-[15px] font-semibold text-accent-ink hover:underline sm:flex">
             הצטרפות כמפעיל
           </Link>
-          <Link href="/bookings" className={buttonClass("contrast", "sm", "relative hidden md:inline-flex")}>
-            ההזמנות שלי
-            {unread > 0 && (
-              <span className="absolute -top-1.5 -start-1.5 grid min-w-5 place-items-center rounded-full bg-danger px-1 text-[11px] font-bold leading-5 text-white" aria-label={`${unread} התראות חדשות`}>
-                {unread}
-              </span>
-            )}
-          </Link>
+          <div className="hidden md:block">
+            <Link href="/bookings" className={buttonClass("contrast", "sm", "relative")}>
+              ההזמנות שלי
+              {unread > 0 && (
+                <span className="absolute -top-1.5 -start-1.5 grid min-w-5 place-items-center rounded-full bg-danger px-1 text-[11px] font-bold leading-5 text-white" aria-label={`${unread} התראות חדשות`}>
+                  {unread}
+                </span>
+              )}
+            </Link>
+          </div>
           <Link href="/operator/join" className="flex min-h-11 items-center rounded-lg px-2 text-[15px] font-semibold text-accent-ink sm:hidden">
             למפעילים
           </Link>

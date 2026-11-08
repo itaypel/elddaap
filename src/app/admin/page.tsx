@@ -44,7 +44,7 @@ export default function AdminOverview() {
         </label>
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3">
         <Stat label="הזמנות שהושלמו" value={p.done} sub={p.growth} subTone="success" />
         <Stat label="היקף הזמנות" value={money(p.volume)} sub="כולל מע״מ" />
         <Stat label="עמלות לפלטפורמה" value={money(commission)} sub={`${Math.round(admin.commission * 100)}% מהזמנות שהושלמו`} />

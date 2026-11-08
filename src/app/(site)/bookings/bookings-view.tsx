@@ -15,6 +15,7 @@ import {
   operatorBySlug,
   packageOf,
   parseDate,
+  pre,
   priceFrom,
   shortDate,
   statusMeta,
@@ -113,7 +114,9 @@ function BookingCard({ b, highlight }: { b: Booking; highlight: boolean }) {
   if (b.status === "completed") priceSub = "שולם במלואו";
 
   const payBy = plusDays(b.date, -5);
-  const replyBy = plusDays(b.createdAt.slice(0, 10), 1);
+  // createdAt may be UTC (new requests) or local (seed data); Date handles both.
+  const replyAt = new Date(new Date(b.createdAt).getTime() + 24 * 36e5);
+  const replyBy = `${replyAt.getDate()}.${replyAt.getMonth() + 1} ב־${String(replyAt.getHours()).padStart(2, "0")}:${String(replyAt.getMinutes()).padStart(2, "0")}`;
 
   return (
     <li ref={ref}>
@@ -154,7 +157,7 @@ function BookingCard({ b, highlight }: { b: Booking; highlight: boolean }) {
             {b.proposal
               ? `${op.name} לא פנויים ב־${shortDate(b.date)} ${b.time}, ומציעים ${dayLabel(b.proposal.date)} ב־${b.proposal.time}.`
               : b.status === "pending"
-                ? `המפעיל יענה עד ${shortDate(replyBy)} ב־${b.createdAt.slice(11, 16) || "14:00"}. אם לא, נעזור לכם למצוא מפעיל אחר.`
+                ? `המפעיל יענה עד ${replyBy}. אם לא, נעזור לכם למצוא מפעיל אחר.`
                 : b.status === "awaiting_payment"
                   ? `המפעיל אישר. משלמים מקדמה עד ${shortDate(payBy)} כדי לשמור את התאריך.`
                   : b.status === "confirmed"
@@ -255,7 +258,7 @@ function BookingCard({ b, highlight }: { b: Booking; highlight: boolean }) {
         }
       >
         <p className="text-[15px] leading-relaxed">
-          הבקשה ל{op.name} ב־{dayLabel(b.date)} תבוטל, והמפעיל יקבל הודעה. עדיין לא חויבתם, כך שהביטול בלי עלות. אי אפשר לשחזר בקשה שבוטלה.
+          הבקשה {pre("ל", op.name)} ב־{dayLabel(b.date)} תבוטל, והמפעיל יקבל הודעה. עדיין לא חויבתם, כך שהביטול בלי עלות. אי אפשר לשחזר בקשה שבוטלה.
         </p>
       </Sheet>
 
@@ -271,7 +274,7 @@ function MessageSheet({ open, onClose, to }: { open: boolean; onClose: () => voi
     <Sheet
       open={open}
       onClose={onClose}
-      title={`הודעה ל${to}`}
+      title={`הודעה ${pre("ל", to)}`}
       footer={
         <Button
           className="w-full"

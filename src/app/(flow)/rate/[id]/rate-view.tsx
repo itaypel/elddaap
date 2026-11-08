@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { CircleCheckBig, ImagePlus, ShieldCheck, X } from "lucide-react";
-import { fullDate, operatorBySlug, packageOf, weekday } from "@/lib/data";
+import { fullDate, operatorBySlug, packageOf, pre, weekday } from "@/lib/data";
 import { useHydrated, useStore } from "@/lib/store";
 import { OperatorMedia } from "@/components/brand";
 import { FlowHeader } from "@/components/site-chrome";
@@ -82,7 +82,7 @@ export function RateView({ id }: { id: number }) {
         <main id="main" className="mx-auto max-w-lg px-4 py-16 text-center">
           <CircleCheckBig aria-hidden className="mx-auto size-14 text-success" strokeWidth={1.6} />
           <h1 className="mt-4 text-[28px] font-extrabold tracking-tight">תודה על הדירוג</h1>
-          <p className="mt-2 text-[17px] text-muted">הביקורת שלכם עוזרת להורים אחרים לבחור, ו{op.name} יקבלו עליה הודעה.</p>
+          <p className="mt-2 text-[17px] text-muted">הביקורת שלכם עוזרת להורים אחרים לבחור, {pre("ו", op.name)} יקבלו עליה הודעה.</p>
           <div className="mt-8 flex flex-col justify-center gap-2 sm:flex-row">
             <ButtonLink href={`/operators/${op.slug}#reviews`} variant="secondary">
               לביקורת בכרטיס המפעיל

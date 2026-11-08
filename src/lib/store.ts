@@ -14,6 +14,7 @@ import {
   depositOf,
   operatorBySlug,
   overlaps,
+  pre,
   seedBookings,
   shortDate,
 } from "./data";
@@ -138,8 +139,8 @@ export const useStore = create<State>()(
         set((s) => ({
           bookings: [booking, ...s.bookings],
           notices: [
-            notice("operator", `בקשה חדשה מ${input.customerName} ל־${shortDate(input.date)}`, "/operator/requests"),
-            notice("customer", `הבקשה נשלחה ל${op?.name ?? "מפעיל"}. תשובה תוך 24 שעות.`, "/bookings"),
+            notice("operator", `בקשה חדשה ${pre("מ", input.customerName)} ל־${shortDate(input.date)}`, "/operator/requests"),
+            notice("customer", `הבקשה נשלחה ${pre("ל", op?.name ?? "מפעיל")}. תשובה תוך 24 שעות.`, "/bookings"),
             ...s.notices,
           ],
         }));

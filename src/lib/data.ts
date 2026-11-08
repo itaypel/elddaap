@@ -649,6 +649,9 @@ export const seedBookings: Booking[] = [
 
 /* ----------------------------------------------------------- Formatting */
 
+/** Attaches a Hebrew prefix letter (ל, מ, ו, ב) to a name, adding a maqaf before Latin text: ל־Water Battle. */
+export const pre = (prefix: string, name: string) => `${prefix}${/^[A-Za-z0-9"']/.test(name) ? "־" : ""}${name}`;
+
 const nis = new Intl.NumberFormat("he-IL", { maximumFractionDigits: 0 });
 export const money = (n: number) => `${nis.format(n)} ₪`;
 

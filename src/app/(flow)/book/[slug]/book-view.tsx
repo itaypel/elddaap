@@ -12,6 +12,7 @@ import {
   eventTypes,
   locationTypes,
   money,
+  pre,
   shortDate,
   weekday,
 } from "@/lib/data";
@@ -129,7 +130,7 @@ export function BookView({ slug }: { slug: string }) {
       price: pkg.price + extraKidsCost,
       travelFee: 0,
     });
-    toast(`הבקשה נשלחה ל${op.name}`);
+    toast(`הבקשה נשלחה ${pre("ל", op.name)}`);
     router.push(`/bookings?new=${id}`);
   };
 
