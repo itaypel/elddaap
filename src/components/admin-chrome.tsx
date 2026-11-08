@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useStore } from "@/lib/store";
 import { Logo } from "./brand";
 import { cx } from "./ui";
 
@@ -18,16 +17,8 @@ const items = [
   { href: "/admin/catalog#rules", label: "עמלות והגדרות" },
 ];
 
-function useBadges() {
-  const admin = useStore((s) => s.admin);
-  const approvals = ["pinat-hachai", "kfitzot-anak", "studio-tzeva"].filter((k) => !admin.approvals[k]).length;
-  const complaints = Object.values(admin.complaints).filter((v) => v !== "closed").length;
-  return { approvals, complaints };
-}
-
-export function AdminNav() {
+export function AdminNav({ badges }: { badges: { approvals: number; complaints: number } }) {
   const pathname = usePathname();
-  const badges = useBadges();
   const isActive = (href: string) => {
     const path = href.split(/[?#]/)[0];
     if (href.includes("#") || href.includes("?")) return false;

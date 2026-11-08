@@ -1,20 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Check, CircleCheckBig, Loader2, ShieldCheck } from "lucide-react";
-import { bookingTotal, cancellationPolicies, depositOf, durationText, money, operatorBySlug, packageOf, parseDate, shortDate, weekday } from "@/lib/data";
-import { useHydrated, useStore } from "@/lib/store";
+import { type Booking, type Profile, cancellationPolicies, depositOf, durationText, money, plusDays, shortDate, weekday } from "@/lib/data";
+import { useStore } from "@/lib/store";
+import { payBooking } from "@/app/actions";
 import { downloadIcs } from "@/lib/ics";
 import { OperatorMedia } from "@/components/brand";
 import { FlowHeader } from "@/components/site-chrome";
 import { Badge, Button, ButtonLink, Card, ChoiceTile, DefinitionRow, Field, Input, Radio, Select, cx } from "@/components/ui";
-
-const plusDays = (iso: string, n: number) => {
-  const d = parseDate(iso);
-  d.setDate(d.getDate() + n);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
 
 const fmtCard = (v: string) =>
   v
@@ -26,10 +21,9 @@ const fmtExp = (v: string) => {
   return d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d;
 };
 
-export function PayView({ id }: { id: number }) {
-  const b = useStore((s) => s.bookings.find((x) => x.id === id));
-  const pay = useStore((s) => s.pay);
-  const profile = useStore((s) => s.profile);
+export function PayView({ booking: b, profile, deposit: depositRate }: { booking: Booking | null; profile: Profile | null; deposit: number }) {
+  const toast = useStore((s) => s.toast);
+  const [pending, start] = useTransition();
   const [amount, setAmount] = useState<"deposit" | "full">("deposit");
   const [method, setMethod] = useState<"card" | "bit" | "apple" | "google">("card");
   const [card, setCard] = useState({ number: "", exp: "", cvv: "", holderId: "", installments: "1" });
@@ -37,16 +31,6 @@ export function PayView({ id }: { id: number }) {
   const [company, setCompany] = useState({ name: "", id: "" });
   const [tried, setTried] = useState(false);
   const [state, setState] = useState<"idle" | "processing" | "done">("idle");
-  const hydrated = useHydrated();
-
-  if (!hydrated) {
-    return (
-      <>
-        <FlowHeader secure />
-        <main id="main" className="mx-auto max-w-6xl px-4 py-20 text-center text-muted">טוען את ההזמנה…</main>
-      </>
-    );
-  }
 
   if (!b) {
     return (
@@ -63,10 +47,10 @@ export function PayView({ id }: { id: number }) {
     );
   }
 
-  const op = operatorBySlug(b.operatorSlug)!;
-  const pkg = packageOf(b);
-  const total = bookingTotal(b);
-  const deposit = depositOf(b);
+  const op = b.operator;
+  const pkg = b.pkg;
+  const total = b.total;
+  const deposit = depositOf(b, depositRate);
   const due = amount === "deposit" ? deposit : total;
   const holdUntil = plusDays(b.date, -5);
   const freeUntil = plusDays(b.date, -14);
@@ -75,7 +59,9 @@ export function PayView({ id }: { id: number }) {
   if (method === "card") {
     if (card.number.replace(/\s/g, "").length < 15) errors.number = "מספר כרטיס לא מלא";
     const [mm, yy] = card.exp.split("/").map(Number);
-    if (!mm || mm > 12 || !yy || 2000 + yy < 2026 || (2000 + yy === 2026 && mm < 11)) errors.exp = "תוקף לא תקין";
+    const now = new Date();
+    const expired = !yy || 2000 + yy < now.getFullYear() || (2000 + yy === now.getFullYear() && mm < now.getMonth() + 1);
+    if (!mm || mm > 12 || expired) errors.exp = "תוקף לא תקין";
     if (!/^\d{3,4}$/.test(card.cvv)) errors.cvv = "3 או 4 ספרות";
     if (!/^\d{9}$/.test(card.holderId)) errors.holderId = "9 ספרות, כולל ספרת ביקורת";
   }
@@ -88,10 +74,15 @@ export function PayView({ id }: { id: number }) {
       return;
     }
     setState("processing");
-    setTimeout(() => {
-      pay(b.id, due);
+    start(async () => {
+      const res = await payBooking(b.id, amount === "full");
+      if (!res.ok) {
+        setState("idle");
+        toast(res.error, "danger");
+        return;
+      }
       setState("done");
-    }, 1300);
+    });
   };
 
   if (state === "done" || (b.status === "confirmed" && state === "idle")) {
@@ -102,7 +93,7 @@ export function PayView({ id }: { id: number }) {
           <CircleCheckBig aria-hidden className="mx-auto size-14 text-success" strokeWidth={1.6} />
           <h1 className="mt-4 text-[28px] font-extrabold tracking-tight">{state === "done" ? "התשלום התקבל" : "ההזמנה כבר שולמה"}</h1>
           <p className="mt-2 text-[17px] leading-relaxed text-muted">
-            {op.name} שמורים לכם ל{weekday(b.date)} {shortDate(b.date)} ב־{b.time}. אישור וקבלה נשלחו ל־{profile.email}.
+            {op.name} שמורים לכם ל{weekday(b.date)} {shortDate(b.date)} ב־{b.time}. אישור וקבלה נשלחו ל־{profile?.email ?? b.email}.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-2 sm:flex-row">
             <Button variant="secondary" onClick={() => downloadIcs(b)}>
@@ -242,7 +233,7 @@ export function PayView({ id }: { id: number }) {
             <Card className="p-5">
               <h2 className="text-lg font-bold">חשבונית</h2>
               <div className="mt-2">
-                <Radio name="invoice" checked={invoice === "personal"} onChange={() => setInvoice("personal")} label={`על שם ${profile.name}, נשלחת ל־${profile.email}`} />
+                <Radio name="invoice" checked={invoice === "personal"} onChange={() => setInvoice("personal")} label={`על שם ${profile?.fullName || b.customerName}, נשלחת ל־${profile?.email ?? b.email}`} />
                 <Radio name="invoice" checked={invoice === "company"} onChange={() => setInvoice("company")} label="על שם מוסד או חברה" />
               </div>
               {invoice === "company" && (
@@ -266,7 +257,7 @@ export function PayView({ id }: { id: number }) {
                 <div>
                   <p className="font-bold">{op.name}</p>
                   <p className="text-[13px] text-muted">
-                    {pkg?.name} · {pkg && durationText(pkg.durationMin)} · הזמנה #{b.id}
+                    {pkg.name} · {durationText(pkg.durationMin)} · הזמנה #{b.id}
                   </p>
                 </div>
               </div>
@@ -286,7 +277,7 @@ export function PayView({ id }: { id: number }) {
                   {money(due)}
                 </DefinitionRow>
               </dl>
-              <Button size="lg" className="mt-4 w-full" onClick={submit} disabled={state === "processing"}>
+              <Button size="lg" className="mt-4 w-full" onClick={submit} disabled={state === "processing" || pending}>
                 {state === "processing" ? (
                   <>
                     <Loader2 aria-hidden className="size-5 animate-spin" />

@@ -1,13 +1,9 @@
 import type { Booking } from "./data";
 
-/** Seeded data is anchored to this moment so countdowns read sensibly in the demo. */
-export const DEMO_NOW = new Date("2026-11-08T10:00:00");
-
+/** Hours an operator has left to answer a pending request. */
 export function hoursLeft(b: Booking, windowHours = 24) {
-  const created = new Date(b.createdAt);
-  const now = created < DEMO_NOW ? DEMO_NOW : new Date();
-  const left = windowHours - (now.getTime() - created.getTime()) / 36e5;
-  return Math.max(1, Math.round(left));
+  const left = windowHours - (Date.now() - new Date(b.createdAt).getTime()) / 36e5;
+  return Math.max(0, Math.round(left));
 }
 
 export function downloadCsv(filename: string, rows: (string | number)[][]) {
@@ -20,11 +16,43 @@ export function downloadCsv(filename: string, rows: (string | number)[][]) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export const monthlyIncome = [
-  { month: "ספטמבר 2026", completed: 14, gross: 23100, transfer: "done" as const },
-  { month: "אוקטובר 2026", completed: 11, gross: 18150, transfer: "done" as const },
-  { month: "נובמבר 2026", completed: 6, gross: 9900, transfer: "scheduled" as const },
-];
+const monthNames = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
+export const monthLabel = (ym: string) => `${monthNames[Number(ym.slice(5, 7)) - 1]} ${ym.slice(0, 4)}`;
+
+export type IncomeRow = { month: string; label: string; completed: number; gross: number; commission: number; net: number; transfer: "done" | "scheduled" };
+
+/** Completed bookings grouped by event month, newest last. Payouts go out on payoutDay of the following month. */
+export function incomeByMonth(bookings: Booking[], commission: number, payoutDay: number): IncomeRow[] {
+  const by = new Map<string, Booking[]>();
+  for (const b of bookings.filter((x) => x.status === "completed")) {
+    const k = b.date.slice(0, 7);
+    by.set(k, [...(by.get(k) ?? []), b]);
+  }
+  const now = new Date();
+  return [...by.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, list]) => {
+      const gross = list.reduce((s, b) => s + b.total, 0);
+      const [y, m] = month.split("-").map(Number);
+      const payout = new Date(y, m, payoutDay);
+      return {
+        month,
+        label: monthLabel(month),
+        completed: list.length,
+        gross,
+        commission: Math.round(gross * commission),
+        net: gross - Math.round(gross * commission),
+        transfer: payout <= now ? "done" : "scheduled",
+      };
+    });
+}
+
+export const nextPayout = (rows: IncomeRow[], payoutDay: number) => {
+  const pending = rows.filter((r) => r.transfer === "scheduled");
+  if (!pending.length) return null;
+  const [y, m] = pending[0].month.split("-").map(Number);
+  return { amount: pending.reduce((s, r) => s + r.net, 0), date: `${payoutDay}.${(m % 12) + 1}`, year: m === 12 ? y + 1 : y };
+};
 
 export const greeting = () => {
   const h = new Date().getHours();

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { CircleCheckBig, FileText, Layers, Receipt } from "lucide-react";
-import { categories } from "@/lib/data";
+import { categories, todayIso } from "@/lib/data";
+import { submitLead } from "@/app/actions";
 import { useStore } from "@/lib/store";
 import { Button, Card, Field, Input, Select, Textarea, cx } from "@/components/ui";
 
@@ -11,6 +12,7 @@ const orgTypes = ["בית ספר", "גן ילדים", "קייטנה", "מתנ״�
 export function InstitutionsView() {
   const toast = useStore((s) => s.toast);
   const [sent, setSent] = useState(false);
+  const [pending, start] = useTransition();
   const [tried, setTried] = useState(false);
   const [f, setF] = useState({ orgType: "בית ספר", org: "", contact: "", phone: "", email: "", date: "", kids: "", ages: "", cats: [] as string[], budget: "", notes: "" });
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
@@ -73,8 +75,12 @@ export function InstitutionsView() {
                   document.getElementById(`i-${Object.keys(errors)[0]}`)?.focus();
                   return;
                 }
-                setSent(true);
-                toast("הבקשה נשלחה");
+                start(async () => {
+                  const res = await submitLead(f);
+                  if (!res.ok) return toast(res.error, "danger");
+                  setSent(true);
+                  toast("הבקשה נשלחה");
+                });
               }}
               className="flex flex-col gap-4"
             >
@@ -104,7 +110,7 @@ export function InstitutionsView() {
                   {err("email")}
                 </Field>
                 <Field label="תאריך משוער" htmlFor="i-date">
-                  <Input id="i-date" type="date" min="2026-11-08" value={f.date} onChange={set("date")} />
+                  <Input id="i-date" type="date" min={todayIso()} value={f.date} onChange={set("date")} />
                 </Field>
                 <Field label="מספר משתתפים" htmlFor="i-kids">
                   <Input id="i-kids" inputMode="numeric" value={f.kids} onChange={(e) => setF({ ...f, kids: e.target.value.replace(/\D/g, "") })} />
@@ -141,8 +147,8 @@ export function InstitutionsView() {
               <Field label="עוד משהו שכדאי לדעת" htmlFor="i-notes">
                 <Textarea id="i-notes" value={f.notes} onChange={set("notes")} placeholder="שכבות גיל, מיקום, נגישות, דרישות רכש" />
               </Field>
-              <Button type="submit" size="lg">
-                שליחת בקשה להצעות מחיר
+              <Button type="submit" size="lg" disabled={pending}>
+                {pending ? "שולחים…" : "שליחת בקשה להצעות מחיר"}
               </Button>
               <p className="text-center text-[13px] text-muted">בלי התחייבות. משלמים רק אחרי שבוחרים הצעה.</p>
             </form>

@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useRef, useState } from "react";
+import { useRef, useState, useTransition } from "react";
 import {
   type LocationType,
-  DEPOSIT,
+  type Operator,
+  type Profile,
   cancellationPolicies,
   dayLabel,
   durationText,
@@ -14,9 +15,12 @@ import {
   money,
   pre,
   shortDate,
+  plusDays,
+  todayIso,
   weekday,
 } from "@/lib/data";
-import { useOperator, useStore } from "@/lib/store";
+import { useStore } from "@/lib/store";
+import { requestBooking } from "@/app/actions";
 import { OperatorMedia } from "@/components/brand";
 import { FlowHeader } from "@/components/site-chrome";
 import { Button, Card, Checkbox, ChoiceTile, DefinitionRow, Field, Input, Select, Textarea, cx } from "@/components/ui";
@@ -50,30 +54,29 @@ export function Stepper({ current }: { current: 1 | 2 | 3 }) {
 const phoneOk = (p: string) => /^0\d{1,2}-?\d{7}$/.test(p.replace(/\s/g, ""));
 const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
-export function BookView({ slug }: { slug: string }) {
-  const op = useOperator(slug)!;
+export function BookView({ op, profile, deposit: depositRate }: { op: Operator; profile: Profile | null; deposit: number }) {
   const params = useSearchParams();
   const router = useRouter();
-  const profile = useStore((s) => s.profile);
-  const createBooking = useStore((s) => s.createBooking);
   const toast = useStore((s) => s.toast);
+  const [pending, start] = useTransition();
 
-  const pkg = op.packages.find((p) => p.id === params.get("pkg")) ?? op.packages[0];
-  const date = params.get("date") || "2026-12-11";
+  const activePackages = op.packages.filter((p) => p.active);
+  const pkg = activePackages.find((p) => p.id === params.get("pkg")) ?? activePackages.find((p) => p.popular) ?? activePackages[0];
+  const date = params.get("date") || plusDays(todayIso(), 14);
   const time = params.get("time") || op.slots[0];
   const extras = (params.get("extras") || "").split(",").filter(Boolean);
 
   const [form, setForm] = useState({
     eventType: "יום הולדת",
-    address: "הרימון 12, רעננה",
+    address: "",
     kids: params.get("kids") || "22",
     ageRange: "6–8",
     location: "home" as LocationType,
     notes: "",
     kind: "parent" as "parent" | "institution",
-    name: profile.name,
-    phone: profile.phone,
-    email: profile.email,
+    name: profile?.fullName ?? "",
+    phone: profile?.phone ?? "",
+    email: profile?.email ?? "",
     org: "",
     orgId: "",
     terms: false,
@@ -89,7 +92,7 @@ export function BookView({ slug }: { slug: string }) {
   const extraKidsCost = extraKids * (pkg.extraKidPrice ?? 0);
   const extrasCost = extras.reduce((s, id) => s + (op.extras.find((e) => e.id === id)?.price ?? 0), 0);
   const total = pkg.price + extraKidsCost + extrasCost;
-  const deposit = Math.round(total * DEPOSIT);
+  const deposit = Math.round(total * depositRate);
   const city = form.address.split(",").pop()?.trim() || "—";
 
   const errors: Record<string, string> = {};
@@ -108,30 +111,32 @@ export function BookView({ slug }: { slug: string }) {
       formRef.current?.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
       return;
     }
-    const id = createBooking({
-      operatorSlug: op.slug,
-      packageId: pkg.id,
-      customerId: "dana",
-      customerName: form.kind === "institution" ? form.org : form.name,
-      customerKind: form.kind,
-      phone: form.phone,
-      email: form.email,
-      eventType: form.eventType,
-      date,
-      time,
-      city,
-      address: form.address,
-      distanceKm: 12,
-      kids,
-      ageRange: form.ageRange,
-      locationType: form.location,
-      notes: form.notes,
-      extras,
-      price: pkg.price + extraKidsCost,
-      travelFee: 0,
+    start(async () => {
+      const res = await requestBooking({
+        operatorId: op.id,
+        packageId: pkg.id,
+        date,
+        time,
+        kids,
+        extras,
+        eventType: form.eventType,
+        address: form.address.trim(),
+        city,
+        ageRange: form.ageRange,
+        location: form.location,
+        notes: form.notes.trim(),
+        kind: form.kind,
+        name: (form.kind === "institution" ? form.org : form.name).trim(),
+        phone: form.phone.trim(),
+        email: form.email.trim(),
+      });
+      if (!res.ok) {
+        toast(res.error, "danger");
+        return;
+      }
+      toast(`הבקשה נשלחה ${pre("ל", op.name)}`);
+      router.push(`/bookings?new=${res.data}`);
     });
-    toast(`הבקשה נשלחה ${pre("ל", op.name)}`);
-    router.push(`/bookings?new=${id}`);
   };
 
   const err = (k: string) =>
@@ -167,7 +172,7 @@ export function BookView({ slug }: { slug: string }) {
                   <Input id="when" readOnly value={`${dayLabel(date)} · ${time}`} className="bg-sunken" />
                 </Field>
                 <Field label="כתובת האירוע" htmlFor="address" className="sm:col-span-2">
-                  <Input id="address" name="address" autoComplete="street-address" value={form.address} onChange={(e) => set("address", e.target.value)} {...invalid("address")} />
+                  <Input id="address" name="address" autoComplete="street-address" placeholder="רחוב, מספר ועיר. למשל: הרימון 12, רעננה" value={form.address} onChange={(e) => set("address", e.target.value)} {...invalid("address")} />
                   {err("address")}
                 </Field>
                 <Field label="מספר ילדים" htmlFor="kids">
@@ -240,7 +245,7 @@ export function BookView({ slug }: { slug: string }) {
               <dl className="mt-4 grid gap-2 sm:grid-cols-2">
                 {[
                   ["נותן השירות", `${op.name} · עוסק מורשה`],
-                  ["מחיר כולל מע״מ", `${money(total)}, מקדמה ${Math.round(DEPOSIT * 100)}% אחרי האישור`],
+                  ["מחיר כולל מע״מ", `${money(total)}, מקדמה ${Math.round(depositRate * 100)}% אחרי האישור`],
                   ["ביטול", cancellationPolicies[op.cancellation].short],
                   ["גשם או מזג אוויר קיצוני", "מועד חלופי בלי עלות"],
                 ].map(([t, d]) => (
@@ -313,10 +318,11 @@ export function BookView({ slug }: { slug: string }) {
                 </DefinitionRow>
                 <DefinitionRow term="מקדמה אחרי האישור">{money(deposit)}</DefinitionRow>
               </dl>
-              <Button type="submit" size="lg" className="mt-4 w-full">
-                שליחת בקשה למפעיל
+              <Button type="submit" size="lg" className="mt-4 w-full" disabled={pending}>
+                {pending ? "שולחים…" : "שליחת בקשה למפעיל"}
               </Button>
               <p className="mt-2 text-center text-[13px] text-muted">לא תחויבו עכשיו</p>
+              {profile?.email && <p className="mt-1 text-center text-[13px] text-muted">מחוברים כ־{profile.email}</p>}
             </Card>
             <Card className="p-5">
               <h2 className="font-bold">מה קורה אחרי השליחה</h2>

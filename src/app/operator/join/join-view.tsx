@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useRef, useState, useTransition } from "react";
 import { Check, CircleCheckBig, FileText, Plus, Trash2 } from "lucide-react";
 import { categories, durationText, locationTypes, regions } from "@/lib/data";
 import { useStore } from "@/lib/store";
+import { createOperator } from "@/app/actions";
 import { Logo } from "@/components/brand";
 import { Badge, Button, ButtonLink, Card, Checkbox, ChoiceTile, Field, Input, Select, Textarea, cx } from "@/components/ui";
 
@@ -34,6 +35,8 @@ type Pkg = { name: string; duration: number; maxKids: string; price: string; inc
 
 export function JoinView() {
   const toast = useStore((s) => s.toast);
+  const setSession = useStore((s) => s.setSession);
+  const [submitting, start] = useTransition();
   const [step, setStep] = useState(0);
   const [done, setDone] = useState(false);
   const [tried, setTried] = useState(false);
@@ -93,9 +96,32 @@ export function JoinView() {
     }
     setTried(false);
     if (step === steps.length - 1) {
-      setDone(true);
-      toast("הפרופיל נשלח לבדיקה");
-    } else setStep(step + 1);
+      start(async () => {
+        const res = await createOperator({
+          name: biz.name.trim(),
+          categories: biz.cats,
+          about: biz.about.trim(),
+          regions: area.regions,
+          ageMin: Number(area.ageMin) || 3,
+          ageMax: Number(area.ageMax) || 12,
+          locations: area.locs.length ? area.locs : ["home"],
+          packages: pkgs.map((p) => ({ name: p.name.trim(), duration: p.duration, maxKids: p.maxKids, price: Number(p.price), includes: p.includes.trim() })),
+          business: { type: ver.type, displayName: (ver.displayName || biz.name).trim(), taxId: ver.taxId, owner: ver.owner.trim(), phone: ver.phone.trim(), plan },
+          bank,
+          documents: docs.map((d) => ({ id: d.id, name: d.title, file: files[d.id] ?? null, state: files[d.id] ? "ok" : d.required ? "missing" : "optional", note: files[d.id] ?? "" })),
+        });
+        if (!res.ok) {
+          toast(res.error, "danger");
+          return;
+        }
+        setSession({ operator: { id: "", slug: res.data ?? "", status: "pending" } });
+        setDone(true);
+        toast("הפרופיל נשלח לבדיקה");
+        top.current?.scrollIntoView({ behavior: "smooth" });
+      });
+      return;
+    }
+    setStep(step + 1);
     top.current?.scrollIntoView({ behavior: "smooth" });
   };
 
@@ -121,7 +147,7 @@ export function JoinView() {
               <ButtonLink href="/" variant="secondary">
                 לאתר
               </ButtonLink>
-              <ButtonLink href="/operator">לאזור המפעילים (הדגמה)</ButtonLink>
+              <ButtonLink href="/operator">לאזור המפעילים</ButtonLink>
             </div>
           </div>
         ) : (
@@ -366,7 +392,7 @@ export function JoinView() {
                   <>
                     <Card className="p-5 sm:p-6">
                       <h2 className="text-lg font-bold">מסמכים</h2>
-                      <p className="text-sm text-muted">המסמכים נשמרים מוצפנים, ורק צוות האימות רואה אותם.</p>
+                      <p className="text-sm text-muted">רק צוות האימות רואה את המסמכים. בגרסה הזו נשמר שם הקובץ, והצוות יבקש את הקבצים עצמם לפני האישור.</p>
                       <ul className="mt-3 divide-y divide-line">
                         {docs.map((d) => (
                           <li key={d.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
@@ -473,8 +499,8 @@ export function JoinView() {
                   <Button variant="secondary" disabled={step === 0} onClick={() => { setTried(false); setStep(step - 1); }}>
                     חזרה
                   </Button>
-                  <Button size="lg" onClick={next}>
-                    {step === steps.length - 1 ? "שליחה לבדיקה" : "שמירה והמשך"}
+                  <Button size="lg" onClick={next} disabled={submitting}>
+                    {submitting ? "שולחים…" : step === steps.length - 1 ? "שליחה לבדיקה" : "שמירה והמשך"}
                   </Button>
                 </div>
               </div>

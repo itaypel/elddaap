@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { CircleCheckBig, ImagePlus, ShieldCheck, X } from "lucide-react";
-import { fullDate, operatorBySlug, packageOf, pre, weekday } from "@/lib/data";
-import { useHydrated, useStore } from "@/lib/store";
+import { type Booking, fullDate, pre, weekday } from "@/lib/data";
+import { useStore } from "@/lib/store";
+import { rateBooking } from "@/app/actions";
 import { OperatorMedia } from "@/components/brand";
 import { FlowHeader } from "@/components/site-chrome";
 import { Sheet } from "@/components/sheet";
@@ -32,12 +33,9 @@ const groups = [
 
 type Key = (typeof groups)[number]["items"][number][0];
 
-export function RateView({ id }: { id: number }) {
-  const b = useStore((s) => s.bookings.find((x) => x.id === id));
-  const profile = useStore((s) => s.profile);
-  const rate = useStore((s) => s.rate);
+export function RateView({ booking: b }: { booking: Booking | null }) {
   const toast = useStore((s) => s.toast);
-  const hydrated = useHydrated();
+  const [pending, start] = useTransition();
   const [scores, setScores] = useState<Record<Key, number>>({ punctuality: 0, communication: 0, asPromised: 0, kidsFun: 0, ageFit: 0, value: 0 });
   const [text, setText] = useState("");
   const [photos, setPhotos] = useState<{ name: string; url: string }[]>([]);
@@ -46,15 +44,6 @@ export function RateView({ id }: { id: number }) {
   const [done, setDone] = useState(false);
   const [complaintOpen, setComplaintOpen] = useState(false);
   const [complaint, setComplaint] = useState("");
-
-  if (!hydrated) {
-    return (
-      <>
-        <FlowHeader backHref="/bookings" backLabel="חזרה להזמנות שלי" />
-        <main id="main" className="mx-auto max-w-2xl px-4 py-20 text-center text-muted">טוען…</main>
-      </>
-    );
-  }
 
   if (!b || b.status !== "completed") {
     return (
@@ -71,8 +60,8 @@ export function RateView({ id }: { id: number }) {
     );
   }
 
-  const op = operatorBySlug(b.operatorSlug)!;
-  const pkg = packageOf(b);
+  const op = b.operator;
+  const pkg = b.pkg;
   const missing = Object.values(scores).filter((v) => v === 0).length;
 
   if (done || b.rated) {
@@ -100,17 +89,14 @@ export function RateView({ id }: { id: number }) {
       document.getElementById("rating-error")?.focus();
       return;
     }
-    const vals = Object.values(scores);
-    const avg = Math.round(vals.reduce((a, c) => a + c, 0) / vals.length);
-    const [first, last] = profile.name.split(" ");
-    rate(b.id, {
-      author: `${first} ${last ? last[0] + "." : ""}`.trim(),
-      context: b.eventType,
-      when: "נובמבר 2026",
-      score: avg,
-      text: text.trim() || "ההפעלה הייתה מוצלחת.",
+    start(async () => {
+      const res = await rateBooking(b.id, scores, text.trim(), recommend === "" ? null : recommend === "yes");
+      if (!res.ok) {
+        toast(res.error, "danger");
+        return;
+      }
+      setDone(true);
     });
-    setDone(true);
   };
 
   return (
@@ -122,7 +108,7 @@ export function RateView({ id }: { id: number }) {
           <div>
             <h1 className="text-[26px] leading-tight font-extrabold tracking-tight sm:text-[30px]">איך היה עם {op.name}?</h1>
             <p className="mt-1 text-sm text-muted">
-              {pkg?.name} · {weekday(b.date)} {fullDate(b.date)} · הזמנה #{b.id}
+              {pkg.name} · {weekday(b.date)} {fullDate(b.date)} · הזמנה #{b.id}
             </p>
           </div>
         </div>
@@ -206,8 +192,8 @@ export function RateView({ id }: { id: number }) {
         )}
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-          <Button size="lg" onClick={publish}>
-            פרסום הדירוג
+          <Button size="lg" onClick={publish} disabled={pending}>
+            {pending ? "מפרסמים…" : "פרסום הדירוג"}
           </Button>
           <Button variant="link" className="text-danger!" onClick={() => setComplaintOpen(true)}>
             משהו לא היה בסדר? פנייה לצוות

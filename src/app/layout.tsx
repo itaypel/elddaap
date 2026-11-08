@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Heebo } from "next/font/google";
 import "./globals.css";
-import { Hydrator, Toaster } from "@/components/brand";
+import { Toaster } from "@/components/brand";
+import { SessionLoader } from "@/components/session";
 
 const heebo = Heebo({
   subsets: ["hebrew", "latin"],
@@ -34,7 +35,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:start-3 focus:z-[70] focus:rounded-xl focus:bg-contrast focus:px-4 focus:py-3 focus:text-on-contrast">
           דילוג לתוכן
         </a>
-        <Hydrator />
+        <SessionLoader />
         {children}
         <Toaster />
       </body>
