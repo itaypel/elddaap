@@ -2,7 +2,6 @@
 -- Every state change on a booking goes through a SECURITY DEFINER function that
 -- checks the caller, so clients only ever SELECT bookings directly.
 
-create extension if not exists pgcrypto;
 
 -- ------------------------------------------------------------------ Types
 
@@ -326,7 +325,7 @@ $$;
 
 /** Busy windows for the public booking widget: times only, no customer data. */
 create function public.busy_slots(p_operator uuid, p_date date)
-returns table (time text, duration_min int) language sql stable security definer set search_path = '' as $$
+returns table ("time" text, duration_min int) language sql stable security definer set search_path = '' as $$
   select b.time, p.duration_min from public.bookings b
   join public.packages p on p.id = b.package_id
   where b.operator_id = p_operator and b.date = p_date and b.status in ('awaiting_payment', 'confirmed')
