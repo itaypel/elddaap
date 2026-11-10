@@ -43,7 +43,7 @@ supabase db push             # supabase/migrations: סכמה, הרשאות, פו
 node scripts/gen-seed.ts     # יוצר מחדש את קובץ ה־seed מ־supabase/seed-data.ts
 ```
 
-מנהל מערכת מוגדר ידנית: `update profiles set is_admin = true where email = '...'`.
+יש מנהל מערכת אחד בלבד (אינדקס ייחודי במסד הנתונים חוסם מנהל שני). הוא מוגדר ידנית: `update profiles set is_admin = true where email = '...'`. כדי להחליף מנהל, קודם מבטלים את הקודם.
 
 ## מבנה
 
