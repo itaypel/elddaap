@@ -251,6 +251,9 @@ export function SiteFooter() {
       <div className="border-t border-line">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-5 text-sm text-muted sm:px-6">
           <p>© 2026 הפעילו · כל המחירים כוללים מע״מ</p>
+          <Link href="/login?next=%2Fadmin" className="font-semibold text-muted hover:text-ink">
+            כניסה לניהול
+          </Link>
         </div>
       </div>
     </footer>

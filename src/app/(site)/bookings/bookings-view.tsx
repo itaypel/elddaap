@@ -423,7 +423,7 @@ function DetailsCard({ profile }: { profile: Profile }) {
           {profile.email}
         </dd>
       </dl>
-      <p className="mt-3 text-sm text-muted">קבלות וחשבוניות נשלחות לאימייל של חשבון Google</p>
+      <p className="mt-3 text-sm text-muted">קבלות וחשבוניות נשלחות לאימייל של החשבון</p>
       <Sheet
         open={open}
         onClose={() => setOpen(false)}
@@ -441,7 +441,7 @@ function DetailsCard({ profile }: { profile: Profile }) {
           <Field label="טלפון נייד" htmlFor="p-phone">
             <Input id="p-phone" type="tel" dir="ltr" className="text-end" autoComplete="tel" value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} />
           </Field>
-          <Field label="אימייל" htmlFor="p-email" hint="האימייל מגיע מחשבון Google ולא ניתן לשינוי כאן">
+          <Field label="אימייל" htmlFor="p-email" hint="האימייל משמש לכניסה ולא ניתן לשינוי כאן">
             <Input id="p-email" type="email" dir="ltr" className="bg-sunken text-end" readOnly value={profile.email} />
           </Field>
         </div>
