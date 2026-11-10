@@ -33,6 +33,8 @@
   --on-contrast: #ffffff;
   --success: #1e7a4c;
   --success-soft: #e7f5ee;
+  --sea: #e6eff8; /* map: Mediterranean behind the land outline */
+  --water: #b9d3ec; /* map: lakes */
   --warning: #8a5300;
   --warning-soft: #fdf2dc;
   --danger: #b42318;
@@ -64,6 +66,8 @@
     --on-contrast: #16161a;
     --success: #5fd09a;
     --success-soft: #133524;
+    --sea: #111821;
+    --water: #22405e;
     --warning: #f0b955;
     --warning-soft: #3a2a0c;
     --danger: #ff8a7e;
@@ -89,6 +93,8 @@
   --accent-ink: #a5a5f5;
   --accent-soft: #25254a;
   --accent-line: #3f3f86;
+  --sea: #111821;
+  --water: #22405e;
   --contrast: #f2f2f5;
   --on-contrast: #16161a;
   --success: #5fd09a;

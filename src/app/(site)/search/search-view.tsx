@@ -399,30 +399,64 @@ function FilterPanel({ f, setF, onReset, cats }: { f: Filters; setF: (f: Filters
   );
 }
 
-/* Region pins laid out north to south — a schematic, not a geographic map. */
-const pinPos: Record<string, { x: number; y: number }> = {
-  צפון: { x: 62, y: 10 },
-  "חיפה והקריות": { x: 42, y: 24 },
-  שרון: { x: 38, y: 40 },
-  מרכז: { x: 34, y: 52 },
-  ירושלים: { x: 62, y: 60 },
-  שפלה: { x: 38, y: 66 },
-  דרום: { x: 46, y: 86 },
+/* Outline of the land (Natural Earth 1:10m, Israel + Palestine merged), equirectangular
+   projection at 32.5°N, scaled to a 36.8×100 box. Pins sit at real city coordinates. */
+const MAP_W = 36.8;
+const MAP_H = 100;
+const landPath = "M0.0 53.4 1.8 51.9 2.3 51.0 3.3 50.3 3.7 49.5 5.3 47.8 6.1 46.7 8.9 41.9 10.7 37.8 11.2 37.2 11.9 34.8 11.8 34.4 12.2 34.2 14.0 28.7 16.2 17.4 16.3 15.1 16.5 14.6 16.8 14.4 17.9 14.9 18.8 14.0 19.2 12.8 18.9 12.4 19.1 10.4 19.5 9.1 19.4 8.7 19.7 8.3 19.6 8.1 21.5 8.3 22.0 8.0 23.6 7.8 24.1 8.1 24.7 8.9 25.0 9.0 27.9 8.1 28.6 6.6 28.8 4.7 29.4 3.2 29.7 3.2 30.6 4.2 30.7 3.5 31.4 3.4 32.7 2.2 34.2 1.6 35.4 0.0 35.1 1.2 34.2 1.8 34.9 2.4 34.2 3.4 35.0 4.1 35.0 5.2 35.5 5.6 35.6 6.3 35.1 7.5 35.9 7.9 36.1 10.6 36.8 11.8 35.7 13.8 35.6 14.8 33.9 16.9 32.4 17.8 31.7 18.4 30.8 18.5 29.6 19.6 29.9 20.1 29.8 20.4 30.1 21.6 29.7 21.9 29.8 22.5 29.5 22.6 29.7 22.7 30.1 23.4 29.7 23.9 29.9 24.3 29.7 24.4 29.8 24.6 29.5 25.0 29.6 25.3 29.3 25.5 29.8 26.6 29.5 26.4 29.6 27.5 29.8 27.9 29.6 28.7 29.9 29.5 29.6 29.8 29.9 29.9 29.6 31.5 29.6 32.0 29.3 32.2 29.5 32.5 29.1 33.1 29.3 33.7 28.9 34.0 28.9 34.4 28.9 35.6 29.3 37.3 28.9 38.0 29.4 40.0 29.2 40.5 29.6 41.9 28.9 42.7 27.9 45.1 27.6 46.9 27.4 50.6 26.5 52.9 26.7 53.7 26.1 54.9 26.2 55.6 27.1 58.1 27.0 58.8 26.0 60.8 25.9 62.4 24.5 64.3 24.4 66.0 23.5 67.1 23.2 68.6 22.0 71.2 20.5 76.0 20.5 76.6 21.0 77.8 20.1 80.7 20.6 83.8 19.4 86.1 19.1 87.1 18.7 88.9 18.5 91.0 17.5 93.8 17.2 95.9 16.7 97.0 16.4 98.6 15.5 100.0 15.0 100.0 14.3 98.6 14.1 98.0 14.2 96.2 13.6 93.6 11.8 88.5 11.7 86.6 8.7 78.2 7.1 76.5 7.4 74.7 6.7 73.4 6.1 70.3 2.8 61.6 0.7 54.8Z";
+
+/* west: the label sits to the left of the dot (over the sea side), otherwise to the right. */
+const pinPos: Record<string, { x: number; y: number; west: boolean }> = {
+  צפון: { x: 27.3, y: 10.4, west: false },
+  "חיפה והקריות": { x: 17.5, y: 15.5, west: true },
+  שרון: { x: 14.6, y: 28.3, west: true },
+  מרכז: { x: 12.9, y: 34.1, west: true },
+  ירושלים: { x: 22.0, y: 41.8, west: false },
+  שפלה: { x: 14.0, y: 42.3, west: true },
+  דרום: { x: 14.2, y: 62.7, west: false },
 };
+
+function IsraelShape({ strokeWidth, id }: { strokeWidth: number; id: string }) {
+  return (
+    <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} className="absolute inset-0 size-full overflow-visible" aria-hidden>
+      <defs>
+        <clipPath id={id}>
+          <path d={landPath} />
+        </clipPath>
+      </defs>
+      <path d={landPath} fill="var(--card)" stroke="var(--line-strong)" strokeWidth={strokeWidth} strokeLinejoin="round" />
+      <g clipPath={`url(#${id})`} fill="var(--water)" stroke="var(--line-strong)" strokeWidth={strokeWidth * 0.6}>
+        {/* Sea of Galilee, Dead Sea and its southern evaporation ponds */}
+        <ellipse cx="30.4" cy="14.6" rx="1.2" ry="2.4" />
+        <ellipse cx="27.9" cy="46.8" rx="1.8" ry="5.4" />
+        <ellipse cx="27.2" cy="55.2" rx="1.2" ry="2.6" />
+      </g>
+    </svg>
+  );
+}
+
+/* Keeps the map at its true aspect ratio, centred in whatever box it's given. */
+function MapFrame({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative mx-auto h-full" style={{ aspectRatio: `${MAP_W} / ${MAP_H}` }}>
+      {children}
+    </div>
+  );
+}
+
+const at = (r: string) => ({ left: `${(pinPos[r].x / MAP_W) * 100}%`, top: `${(pinPos[r].y / MAP_H) * 100}%` });
 
 function MiniMap({ results }: { results: Operator[] }) {
   return (
-    <div className="relative h-36 bg-sunken" aria-label={`מפה: ${results.length} תוצאות`} role="img">
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 size-full text-line-strong" aria-hidden>
-        <path d="M30 4 L66 2 L70 20 L60 40 L66 62 L58 98 L42 98 L30 70 L26 46 L32 26 Z" fill="var(--card)" stroke="currentColor" strokeWidth="0.6" />
-      </svg>
-      {regions.map((r) => {
-        const n = results.filter((o) => o.regions.includes(r)).length;
-        if (!n) return null;
-        return (
-          <span key={r} className="absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent ring-3 ring-accent/25" style={{ left: `${pinPos[r].x}%`, top: `${pinPos[r].y}%` }} />
-        );
-      })}
+    <div className="relative h-44 bg-[var(--sea)] py-3" aria-label={`מפה: ${results.length} תוצאות`} role="img">
+      <MapFrame>
+        <IsraelShape strokeWidth={0.5} id="land-mini" />
+        {regions.map((r) => {
+          const n = results.filter((o) => o.regions.includes(r)).length;
+          if (!n) return null;
+          return <span key={r} className="absolute size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent ring-3 ring-accent/25" style={at(r)} />;
+        })}
+      </MapFrame>
       <span className="absolute top-3 start-3 flex items-center gap-1 rounded-full bg-card px-2.5 py-0.5 text-[13px] font-semibold">
         <MapPin aria-hidden className="size-3.5" />
         מפה
@@ -434,32 +468,44 @@ function MiniMap({ results }: { results: Operator[] }) {
 function BigMap({ results, region, onRegion }: { results: Operator[]; region: string; onRegion: (r: string) => void }) {
   return (
     <div className="grid md:grid-cols-[1fr_280px]">
-      <div className="relative min-h-[420px] bg-sunken">
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 size-full text-line-strong" aria-hidden>
-          <path d="M30 4 L66 2 L70 20 L60 40 L66 62 L58 98 L42 98 L30 70 L26 46 L32 26 Z" fill="var(--card)" stroke="currentColor" strokeWidth="0.4" />
-        </svg>
-        {regions.map((r) => {
-          const n = results.filter((o) => o.regions.includes(r)).length;
-          const active = region === r;
-          return (
-            <button
-              key={r}
-              type="button"
-              onClick={() => onRegion(active ? "" : r)}
-              aria-pressed={active}
-              className={cx(
-                "absolute flex min-h-9 -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 rounded-full px-3 text-[13px] font-bold shadow-card transition-colors",
-                active ? "bg-accent text-white" : n ? "bg-card text-ink hover:bg-accent-soft" : "bg-card/70 text-subtle",
-              )}
-              style={{ left: `${pinPos[r].x}%`, top: `${pinPos[r].y}%` }}
-            >
-              <MapPin aria-hidden className="size-3.5" />
-              {r} · {n}
-            </button>
-          );
-        })}
+      <div className="relative h-[560px] overflow-hidden bg-[var(--sea)] py-6">
+        <span className="absolute top-[38%] left-4 text-[13px] font-medium text-subtle">הים התיכון</span>
+        <MapFrame>
+          <IsraelShape strokeWidth={0.25} id="land-big" />
+          {regions.map((r) => {
+            const n = results.filter((o) => o.regions.includes(r)).length;
+            const active = region === r;
+            const { west } = pinPos[r];
+            const dot = <span aria-hidden className={cx("size-3 shrink-0 rounded-full ring-3 ring-card", n || active ? "bg-accent" : "bg-subtle")} />;
+            const label = (
+              <span
+                dir="rtl"
+                className={cx(
+                  "flex min-h-9 items-center whitespace-nowrap rounded-full px-3 text-[13px] font-bold shadow-card transition-colors",
+                  active ? "bg-accent text-white" : n ? "bg-card text-ink group-hover:bg-accent-soft" : "bg-card/70 text-subtle",
+                )}
+              >
+                {r} · <span className="tabular ms-1">{n}</span>
+              </span>
+            );
+            return (
+              <button
+                key={r}
+                type="button"
+                dir="ltr"
+                onClick={() => onRegion(active ? "" : r)}
+                aria-pressed={active}
+                aria-label={`${r}: ${n} מפעילים`}
+                className={cx("group absolute z-10 flex items-center gap-1.5", active && "z-20")}
+                style={{ ...at(r), transform: west ? "translate(calc(-100% + 6px), -50%)" : "translate(-6px, -50%)" }}
+              >
+                {west ? <>{label}{dot}</> : <>{dot}{label}</>}
+              </button>
+            );
+          })}
+        </MapFrame>
       </div>
-      <ul className="max-h-[420px] overflow-y-auto border-line md:border-s">
+      <ul className="max-h-[560px] overflow-y-auto border-line md:border-s">
         {results.map((o) => (
           <li key={o.slug} className="border-b border-line last:border-0">
             <Link href={`/operators/${o.slug}`} className="flex items-center gap-3 px-4 py-3 hover:bg-sunken">
