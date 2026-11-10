@@ -7,6 +7,8 @@ import { setOperatorStatus } from "@/app/actions";
 import { useAction } from "@/components/use-action";
 import { useStore } from "@/lib/store";
 import { OperatorMedia } from "@/components/brand";
+import { supabaseBrowser } from "@/lib/supabase/client";
+import { DOCS_BUCKET } from "@/lib/photos";
 import { Badge, Button, Card, CardHeader, Field, PageTitle, SampleBadge, Tabs, Textarea, cx } from "@/components/ui";
 
 type Tab = "profiles" | "content" | "flagged" | "complaints";
@@ -24,6 +26,17 @@ const sampleFlagged = [
 ];
 
 const docState = (s: string) => s as "ok" | "missing" | "expired" | "optional";
+
+/** Private documents open through a short-lived signed link (admins can read the bucket). */
+async function openDoc(path: string, onError: () => void) {
+  const win = window.open("", "_blank"); // open synchronously so the popup isn't blocked
+  const { data } = await supabaseBrowser().storage.from(DOCS_BUCKET).createSignedUrl(path, 300);
+  if (data?.signedUrl && win) win.location.href = data.signedUrl;
+  else {
+    win?.close();
+    onError();
+  }
+}
 
 export function ApprovalsView({ operators }: { operators: AdminOperator[] }) {
   const toast = useStore((s) => s.toast);
@@ -116,6 +129,29 @@ export function ApprovalsView({ operators }: { operators: AdminOperator[] }) {
 
               {current.about && <p className="mt-4 rounded-xl bg-sunken p-3 text-[15px] leading-relaxed">{current.about}</p>}
 
+              {(current.logo || current.photos.length > 0) && (
+                <>
+                  <h3 className="mt-6 font-bold">תמונות</h3>
+                  <ul className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-5">
+                    {current.logo && (
+                      <li className="relative">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={current.logo} alt="לוגו" className="aspect-square w-full rounded-xl object-cover" />
+                        <span className="absolute bottom-2 start-2 rounded-md bg-card px-1.5 py-0.5 text-[12px] font-bold">לוגו</span>
+                      </li>
+                    )}
+                    {current.photos.map((src, i) => (
+                      <li key={src}>
+                        <a href={src} target="_blank" rel="noreferrer" aria-label={`תמונה ${i + 1}`}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={src} alt="" className="aspect-square w-full rounded-xl object-cover" />
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+
               <h3 className="mt-6 font-bold">מסמכים</h3>
               <ul className="mt-2 divide-y divide-line">
                 {current.documents.map((d) => {
@@ -125,6 +161,11 @@ export function ApprovalsView({ operators }: { operators: AdminOperator[] }) {
                       <span className="text-[15px]">{d.name}</span>
                       <span className="flex items-center gap-3">
                         {d.note && <span className="text-sm text-muted">{d.note}</span>}
+                        {d.path && (
+                          <Button variant="secondary" size="sm" onClick={() => openDoc(d.path!, () => toast("לא הצלחנו לפתוח את הקובץ.", "danger"))}>
+                            צפייה
+                          </Button>
+                        )}
                         <Badge tone={st === "ok" ? "success" : st === "optional" ? "neutral" : "danger"}>
                           {st === "ok" ? "התקבל" : st === "missing" ? "חסר" : st === "expired" ? "פג תוקף" : "לא חובה"}
                         </Badge>

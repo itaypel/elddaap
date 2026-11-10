@@ -11,7 +11,7 @@ export function OperatorCard({ op }: { op: Operator }) {
   const { saved, toggle } = useSaved(op.id);
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-line bg-card transition-shadow hover:shadow-card">
-      <OperatorMedia category={op.category} className="aspect-[16/10]" iconClassName="size-12">
+      <OperatorMedia category={op.category} src={op.photos[0]} className="aspect-[16/10]" iconClassName="size-12">
         <span className="absolute top-3 start-3 rounded-full bg-card/95 px-2.5 py-0.5 text-[13px] font-semibold text-ink">{categoryById[op.category].name}</span>
       </OperatorMedia>
       <button

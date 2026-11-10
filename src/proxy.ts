@@ -2,10 +2,17 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { SUPABASE_KEY, SUPABASE_URL, supabaseConfigured } from "@/lib/supabase/env";
 
-/** Sections that need a signed-in user. /operators (public profiles) is deliberately not here. */
+/**
+ * Sections that need a signed-in user. /operators (public profiles) is deliberately not here,
+ * and neither is /operator/join: its wizard creates the operator's account as its first step.
+ */
 const needsAuth = (path: string) =>
-  ["/bookings", "/operator", "/admin"].some((p) => path === p || path.startsWith(`${p}/`)) ||
-  ["/book/", "/pay/", "/rate/"].some((p) => path.startsWith(p));
+  path !== "/operator/join" &&
+  (["/bookings", "/operator", "/admin"].some((p) => path === p || path.startsWith(`${p}/`)) ||
+    ["/book/", "/pay/", "/rate/"].some((p) => path.startsWith(p)));
+
+/** Only same-site paths are allowed as a post-login destination. */
+const safeNext = (next: string | null) => (next && next.startsWith("/") && !next.startsWith("//") ? next : "/bookings");
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -27,6 +34,16 @@ export async function proxy(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
 
   const path = request.nextUrl.pathname;
+
+  // Already signed in: the login page has nothing to offer, go straight to where they were heading.
+  if (data?.claims && path === "/login") {
+    const url = request.nextUrl.clone();
+    const [pathname, search = ""] = safeNext(request.nextUrl.searchParams.get("next")).split("?");
+    url.pathname = pathname;
+    url.search = search ? `?${search}` : "";
+    return NextResponse.redirect(url);
+  }
+
   if (!data?.claims && needsAuth(path)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";

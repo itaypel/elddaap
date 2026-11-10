@@ -57,12 +57,15 @@ export function OperatorMedia({
   className,
   label,
   iconClassName = "size-10",
+  src,
   children,
 }: {
   category: CategoryId;
   className?: string;
   label?: string;
   iconClassName?: string;
+  /** A real photo; without one the category tint and icon stand in. */
+  src?: string | null;
   children?: React.ReactNode;
 }) {
   const c = categoryById[category];
@@ -73,9 +76,14 @@ export function OperatorMedia({
       role={label ? "img" : undefined}
       aria-label={label}
     >
-      <span style={{ color: c.hue }} className="opacity-80">
-        <CategoryIcon id={category} className={iconClassName} />
-      </span>
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} alt="" loading="lazy" decoding="async" className="absolute inset-0 size-full object-cover" />
+      ) : (
+        <span style={{ color: c.hue }} className="opacity-80">
+          <CategoryIcon id={category} className={iconClassName} />
+        </span>
+      )}
       {children}
     </div>
   );

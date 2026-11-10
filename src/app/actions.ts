@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { CancellationPolicy, LocationType, Package, Settings } from "@/lib/data";
 import { getUser } from "@/lib/db";
+import { MAX_PHOTOS, photoPath } from "@/lib/photos";
 import { supabaseServer } from "@/lib/supabase/server";
 
 export type Result<T = undefined> = { ok: true; data?: T } | { ok: false; error: string };
@@ -192,6 +193,26 @@ export async function saveOperatorProfile(input: {
   }
   revalidatePath("/operator/profile");
   revalidatePath(`/operators/${input.slug}`);
+  return { ok: true };
+}
+
+/** Logo and gallery, saved as soon as they change in the profile panel. */
+export async function saveOperatorPhotos(operatorId: string, slug: string, logo: string | null, photos: string[]): Promise<Result> {
+  const user = await getUser();
+  if (!user) return { ok: false, error: "צריך להתחבר." };
+  // Only files from the owner's own folder in our bucket.
+  const own = (url: string) => {
+    const path = photoPath(url);
+    return path.startsWith(`${user.id}/`) ? path : null;
+  };
+  const db = await supabaseServer();
+  const { error } = await db
+    .from("operators")
+    .update({ logo_url: logo ? own(logo) : null, photos: photos.map(own).filter(Boolean).slice(0, MAX_PHOTOS) })
+    .eq("id", operatorId);
+  if (error) return { ok: false, error: explain(error.message) };
+  revalidatePath("/operator/profile");
+  revalidatePath(`/operators/${slug}`);
   return { ok: true };
 }
 

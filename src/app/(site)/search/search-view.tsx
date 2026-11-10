@@ -276,7 +276,7 @@ function ResultRow({ op, date, compared, onCompare }: { op: Operator; date: stri
   return (
     <li>
       <article className="grid gap-4 rounded-2xl border border-line bg-card p-3 sm:grid-cols-[200px_1fr_190px] sm:p-4">
-        <OperatorMedia category={op.category} className="aspect-[16/9] rounded-xl sm:aspect-auto sm:min-h-36" />
+        <OperatorMedia category={op.category} src={op.photos[0]} className="aspect-[16/9] rounded-xl sm:aspect-auto sm:min-h-36" />
         <div className="flex min-w-0 flex-col gap-1.5 px-1 sm:px-0">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
             {op.sponsored && <Badge className="bg-sunken text-ink">ממומן</Badge>}
@@ -509,7 +509,7 @@ function BigMap({ results, region, onRegion }: { results: Operator[]; region: st
         {results.map((o) => (
           <li key={o.slug} className="border-b border-line last:border-0">
             <Link href={`/operators/${o.slug}`} className="flex items-center gap-3 px-4 py-3 hover:bg-sunken">
-              <OperatorMedia category={o.category} className="size-12 shrink-0 rounded-lg" iconClassName="size-5" />
+              <OperatorMedia category={o.category} src={o.logo ?? o.photos[0]} className="size-12 shrink-0 rounded-lg" iconClassName="size-5" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-bold">{o.name}</span>
                 <span className="block truncate text-[13px] text-muted">{o.regionLabel}</span>
@@ -549,7 +549,7 @@ function CompareTable({ operators, slugs, date }: { operators: Operator[]; slugs
             <th className="w-32" />
             {ops.map((o) => (
               <th key={o.slug} scope="col" className="p-2 text-start align-bottom">
-                <OperatorMedia category={o.category} className="mb-2 aspect-[16/9] rounded-lg" iconClassName="size-7" />
+                <OperatorMedia category={o.category} src={o.photos[0]} className="mb-2 aspect-[16/9] rounded-lg" iconClassName="size-7" />
                 <span className="font-bold">{o.name}</span>
               </th>
             ))}

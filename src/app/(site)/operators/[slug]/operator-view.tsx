@@ -47,6 +47,11 @@ export function OperatorView({ op }: { op: Operator }) {
   const [kids, setKids] = useState(22);
   const [extras, setExtras] = useState<string[]>([]);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const photos = op.photos;
+  const openGallery = (i: number) => {
+    setGalleryOpen(true);
+    if (i > 0) setTimeout(() => document.getElementById(`photo-${i}`)?.scrollIntoView({ block: "start" }), 50);
+  };
   const [askOpen, setAskOpen] = useState(false);
   const [bookOpen, setBookOpen] = useState(false);
   const [allReviews, setAllReviews] = useState(false);
@@ -218,9 +223,15 @@ export function OperatorView({ op }: { op: Operator }) {
               עונה בדרך כלל תוך {op.responseHours} שעות
             </Badge>
           </div>
-          <h1 className="mt-3 text-[30px] leading-tight font-extrabold tracking-tight sm:text-[40px]">
-            {op.name} <span className="text-muted">· {cat.name}</span>
-          </h1>
+          <div className="mt-3 flex items-center gap-3 sm:gap-4">
+            {op.logo && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={op.logo} alt={`הלוגו של ${op.name}`} className="size-14 shrink-0 rounded-2xl border border-line object-cover sm:size-16" />
+            )}
+            <h1 className="text-[30px] leading-tight font-extrabold tracking-tight sm:text-[40px]">
+              {op.name} <span className="text-muted">· {cat.name}</span>
+            </h1>
+          </div>
           <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[15px] text-muted">
             <Rating value={op.rating} count={op.reviewsCount} />
             <span>גילאי {op.ageMin}–{op.ageMax}</span>
@@ -241,26 +252,51 @@ export function OperatorView({ op }: { op: Operator }) {
       </div>
 
       {/* Gallery */}
-      <div className="mt-5 grid h-56 grid-cols-4 grid-rows-2 gap-2 overflow-hidden rounded-2xl sm:h-80 lg:h-[380px]">
-        <button type="button" onClick={() => setGalleryOpen(true)} className="col-span-4 row-span-2 sm:col-span-2" aria-label="פתיחת הגלריה">
-          <OperatorMedia category={op.category} className="size-full" iconClassName="size-14" label={`תמונה ראשית של ${op.name}`} />
-        </button>
-        <button type="button" onClick={() => setGalleryOpen(true)} className="hidden sm:block" aria-label="תמונה 2">
-          <OperatorMedia category={op.category} className="size-full opacity-90" iconClassName="size-8" />
-        </button>
-        <button type="button" onClick={() => setGalleryOpen(true)} className="hidden sm:block" aria-label="תמונה 3">
-          <OperatorMedia category={op.category} className="size-full opacity-80" iconClassName="size-8" />
-        </button>
-        <button type="button" onClick={() => setGalleryOpen(true)} className="hidden items-center justify-center gap-2 bg-[#16161a] text-sm font-semibold text-white sm:flex">
-          <Play aria-hidden className="size-4 fill-white" />
-          סרטון 0:45
-        </button>
-        <button type="button" onClick={() => setGalleryOpen(true)} className="hidden sm:block">
-          <OperatorMedia category={op.category} className="size-full opacity-70" iconClassName="hidden">
-            <span className="absolute inset-0 grid place-items-center text-sm font-bold text-ink">כל 24 התמונות</span>
-          </OperatorMedia>
-        </button>
-      </div>
+      {photos.length > 0 ? (
+        <div className={cx("mt-5 grid h-56 gap-2 overflow-hidden rounded-2xl sm:h-80 lg:h-[380px]", photos.length === 1 ? "grid-cols-1" : photos.length === 2 ? "grid-cols-4 sm:grid-cols-2" : "grid-cols-4 grid-rows-2")}>
+          <button type="button" onClick={() => openGallery(0)} className={cx("relative overflow-hidden", photos.length === 1 ? "" : photos.length === 2 ? "col-span-4 sm:col-span-1" : "col-span-4 row-span-2 sm:col-span-2")} aria-label="פתיחת הגלריה">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={photos[0]} alt={`תמונה ראשית של ${op.name}`} className="size-full object-cover" />
+          </button>
+          {photos.slice(1, 5).map((src, i) => {
+            const last = i === 3 && photos.length > 5;
+            return (
+              <button
+                key={src}
+                type="button"
+                onClick={() => openGallery(i + 1)}
+                className={cx("relative hidden overflow-hidden sm:block", photos.length === 3 && "row-span-2", photos.length === 4 && i === 0 && "row-span-2")}
+                aria-label={last ? `כל ${photos.length} התמונות` : `תמונה ${i + 2}`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={src} alt="" loading="lazy" className="size-full object-cover" />
+                {last && <span className="absolute inset-0 grid place-items-center bg-black/45 text-sm font-bold text-white">כל {photos.length} התמונות</span>}
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="mt-5 grid h-56 grid-cols-4 grid-rows-2 gap-2 overflow-hidden rounded-2xl sm:h-80 lg:h-[380px]">
+          <button type="button" onClick={() => openGallery(0)} className="col-span-4 row-span-2 sm:col-span-2" aria-label="פתיחת הגלריה">
+            <OperatorMedia category={op.category} className="size-full" iconClassName="size-14" label={`תמונה ראשית של ${op.name}`} />
+          </button>
+          <button type="button" onClick={() => openGallery(0)} className="hidden sm:block" aria-label="תמונה 2">
+            <OperatorMedia category={op.category} className="size-full opacity-90" iconClassName="size-8" />
+          </button>
+          <button type="button" onClick={() => openGallery(0)} className="hidden sm:block" aria-label="תמונה 3">
+            <OperatorMedia category={op.category} className="size-full opacity-80" iconClassName="size-8" />
+          </button>
+          <button type="button" onClick={() => openGallery(0)} className="hidden items-center justify-center gap-2 bg-[#16161a] text-sm font-semibold text-white sm:flex">
+            <Play aria-hidden className="size-4 fill-white" />
+            סרטון 0:45
+          </button>
+          <button type="button" onClick={() => openGallery(0)} className="hidden sm:block">
+            <OperatorMedia category={op.category} className="size-full opacity-70" iconClassName="hidden">
+              <span className="absolute inset-0 grid place-items-center text-sm font-bold text-ink">כל 24 התמונות</span>
+            </OperatorMedia>
+          </button>
+        </div>
+      )}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="min-w-0">
@@ -460,12 +496,23 @@ export function OperatorView({ op }: { op: Operator }) {
         {widget("sheet")}
       </Sheet>
 
-      <Sheet open={galleryOpen} onClose={() => setGalleryOpen(false)} title="תמונות וסרטונים" wide>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {Array.from({ length: 9 }).map((_, i) => (
-            <OperatorMedia key={i} category={op.category} className="aspect-square rounded-xl" iconClassName="size-8" label={`תמונה ${i + 1}`} />
-          ))}
-        </div>
+      <Sheet open={galleryOpen} onClose={() => setGalleryOpen(false)} title="תמונות" wide>
+        {photos.length > 0 ? (
+          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {photos.map((src, i) => (
+              <li key={src} id={`photo-${i}`} className="scroll-mt-4">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={src} alt={`תמונה ${i + 1} של ${op.name}`} loading="lazy" className="w-full rounded-xl object-cover" />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {Array.from({ length: 9 }).map((_, i) => (
+              <OperatorMedia key={i} category={op.category} className="aspect-square rounded-xl" iconClassName="size-8" label={`תמונה ${i + 1}`} />
+            ))}
+          </div>
+        )}
         <p className="mt-3 text-[13px] text-muted">תמונות שבהן מזוהים ילדים עוברות בדיקה ומתפרסמות רק עם הסכמה של ההורים.</p>
       </Sheet>
 

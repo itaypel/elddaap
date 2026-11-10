@@ -5,6 +5,7 @@ import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import type { Booking, CategoryId, Notice, Operator, Package, Profile, Review, Settings } from "./data";
 import { defaultSettings } from "./data";
+import { photoUrl } from "./photos";
 import { supabaseConfigured } from "./supabase/env";
 import { supabasePublic, supabaseServer } from "./supabase/server";
 
@@ -80,6 +81,8 @@ export const toOperator = (r: any): Operator => {
     insuranceUntil: r.insurance_until,
     bookingsCount: r.bookings_count,
     blockedDates: r.blocked_dates ?? [],
+    logo: r.logo_url ? photoUrl(r.logo_url) : null,
+    photos: ((r.photos ?? []) as string[]).map(photoUrl),
   };
 };
 
@@ -289,7 +292,7 @@ export const getAdminData = cache(async () => {
     operators: (operators.data ?? []).map((r: any) => ({
       ...toOperator(r),
       business: (priv.get(r.id)?.business ?? {}) as Record<string, string>,
-      documents: (priv.get(r.id)?.documents ?? []) as { id: string; name: string; state: "ok" | "missing" | "expired"; note: string }[],
+      documents: (priv.get(r.id)?.documents ?? []) as { id: string; name: string; state: "ok" | "missing" | "expired"; note: string; path?: string | null }[],
       createdAt: r.created_at as string,
     })),
     categories: (categories.data ?? []).map((c: any) => ({ id: c.id as CategoryId, name: c.name as string, active: c.active as boolean })),

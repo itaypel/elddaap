@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { getMyOperator } from "@/lib/db";
+import { getMyOperator, getProfile, getUser } from "@/lib/db";
 import { JoinView } from "./join-view";
 
 export const metadata: Metadata = {
@@ -10,5 +10,8 @@ export const metadata: Metadata = {
 
 export default async function JoinPage() {
   if (await getMyOperator()) redirect("/operator");
-  return <JoinView />;
+  const [user, profile] = await Promise.all([getUser(), getProfile()]);
+  // Signed-in visitors skip the account step; their details prefill the business form.
+  const account = user ? { id: user.id, fullName: profile?.fullName ?? "", email: profile?.email ?? "", phone: profile?.phone ?? "" } : null;
+  return <JoinView account={account} />;
 }

@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type CancellationPolicy, type Operator, type Package, cancellationPolicies, categories, durationText, money, regions } from "@/lib/data";
 import { useStore } from "@/lib/store";
-import { saveOperatorProfile } from "@/app/actions";
-import { OperatorMedia } from "@/components/brand";
+import { saveOperatorPhotos, saveOperatorProfile } from "@/app/actions";
+import { PhotoManager, type PhotoSet } from "@/components/photo-manager";
 import { Badge, Button, Card, CardHeader, Field, Input, PageTitle, Select, Textarea, buttonClass, cx } from "@/components/ui";
 
 export function ProfileView({ op }: { op: Operator }) {
@@ -23,6 +22,20 @@ export function ProfileView({ op }: { op: Operator }) {
   const [editing, setEditing] = useState<string | null>((op.packages.find((p) => p.popular) ?? op.packages[0])?.id ?? null);
   const [areas, setAreas] = useState<string[]>(op.regions);
   const [policy, setPolicy] = useState<CancellationPolicy>(op.cancellation);
+  const [media, setMedia] = useState<PhotoSet>({ logo: op.logo, photos: op.photos });
+
+  const savePhotos = async (next: PhotoSet) => {
+    const prev = media;
+    setMedia(next);
+    const res = await saveOperatorPhotos(op.id, op.slug, next.logo, next.photos);
+    if (!res.ok) {
+      setMedia(prev);
+      toast(res.error, "danger");
+      return false;
+    }
+    toast("התמונות עודכנו");
+    return true;
+  };
 
   const dirty =
     name !== op.name || tagline !== op.tagline || about !== op.about || policy !== op.cancellation || JSON.stringify(packages) !== JSON.stringify(op.packages) || JSON.stringify(areas) !== JSON.stringify(op.regions) ||
@@ -57,9 +70,9 @@ export function ProfileView({ op }: { op: Operator }) {
     !packages.some((p) => p.active) && { label: "לפחות חבילה פעילה אחת", weight: 20 },
     !op.facts.length && { label: "עובדות על ההפעלה", weight: 10 },
     !op.prepare.length && { label: "מה להכין לפני האירוע", weight: 10 },
+    !media.photos.length && { label: "תמונות מהפעילות", weight: 20 },
   ].filter(Boolean) as { label: string; weight: number }[];
   const completion = 100 - missing.reduce((s, m) => s + m.weight, 0);
-  const photos = 4;
 
   return (
     <>
@@ -129,35 +142,14 @@ export function ProfileView({ op }: { op: Operator }) {
       </Card>
 
       <Card className="mt-4 p-5">
-        <CardHeader title="תמונות וסרטונים" sub="גוררים כדי לשנות סדר. הראשונה היא התמונה הראשית." />
-        <ul className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-5">
-          {Array.from({ length: photos }).map((_, i) => (
-            <li key={i} className="relative">
-              <OperatorMedia category={op.category} className="aspect-[4/3] rounded-xl" iconClassName="size-6" label={`תמונה ${i + 1}`} />
-              {i === 0 && <span className="absolute bottom-2 start-2 rounded-md bg-card px-1.5 py-0.5 text-[12px] font-bold">ראשית</span>}
-              {i === photos - 1 && i > 0 && <Badge tone="warning" className="absolute bottom-2 start-2 text-[12px]">בבדיקה</Badge>}
-            </li>
-          ))}
-          <li>
-            <label className="grid aspect-[4/3] cursor-pointer place-items-center rounded-xl border-[1.5px] border-dashed border-line-strong text-center text-sm font-semibold text-accent-ink hover:bg-sunken has-focus-visible:ring-3 has-focus-visible:ring-accent/40">
-              <span className="flex flex-col items-center gap-1">
-                <Plus aria-hidden className="size-5" />
-                הוספה
-              </span>
-              <input
-                type="file"
-                accept="image/*,video/*"
-                multiple
-                className="sr-only"
-                onChange={(e) => {
-                  if (e.target.files?.length) toast("העלאת תמונות תיפתח בשלב הבא. הקבצים לא נשמרו.", "neutral");
-                  e.target.value = "";
-                }}
-              />
-            </label>
-          </li>
-        </ul>
-        <p className="mt-3 text-[13px] text-muted">העלאת תמונות וסרטונים תיפתח בשלב הבא. תמונות שבהן מזוהים ילדים עוברות בדיקה של הצוות. מעלים רק תמונות שיש עליהן הסכמה של ההורים או המוסד.</p>
+        <CardHeader title="לוגו ותמונות" sub="השינויים נשמרים מיד. התמונה הראשונה היא התמונה הראשית בכרטיס ובדף העסק." />
+        <div className="mt-4">
+          {op.ownerId ? (
+            <PhotoManager uid={op.ownerId} value={media} onChange={savePhotos} />
+          ) : (
+            <p className="text-[15px] text-muted">אין בעלים משויך לפרופיל הזה, ולכן אי אפשר להעלות תמונות.</p>
+          )}
+        </div>
       </Card>
 
       <Card className="mt-4 p-5">

@@ -13,6 +13,15 @@ type Mode = "signin" | "signup";
 
 export const USERNAME_DOMAIN = "users.elddaap.app";
 const usernameOk = (u: string) => /^[a-z0-9][a-z0-9._-]{2,29}$/.test(u);
+const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e) && !e.endsWith(`@${USERNAME_DOMAIN}`);
+
+/** Israeli mobile in any common form (050-1234567, 0501234567, +972 50 123 4567) → "050-1234567", or null. */
+function normalizeMobile(raw: string) {
+  let d = raw.replace(/[\s\-().]/g, "");
+  if (d.startsWith("+")) d = d.slice(1);
+  if (d.startsWith("972")) d = "0" + d.slice(3);
+  return /^05\d{8}$/.test(d) ? `${d.slice(0, 3)}-${d.slice(3)}` : null;
+}
 
 const reasons: Record<string, { icon: typeof Store; text: string }> = {
   operator: { icon: Store, text: "כדי לנהל את העסק שלכם כמפעיל" },
@@ -24,7 +33,7 @@ const reasons: Record<string, { icon: typeof Store; text: string }> = {
 function explain(message: string) {
   const m = message.toLowerCase();
   if (m.includes("invalid login")) return "האימייל או הסיסמה לא נכונים.";
-  if (m.includes("already registered") || m.includes("already been registered")) return "כבר יש חשבון עם האימייל הזה. עברו ללשונית כניסה.";
+  if (m.includes("already registered") || m.includes("already been registered")) return "כבר יש חשבון עם שם המשתמש הזה. עברו ללשונית כניסה.";
   if (m.includes("password") && (m.includes("short") || m.includes("at least") || m.includes("weak"))) return "הסיסמה קצרה מדי. צריך לפחות 8 תווים.";
   if (m.includes("rate limit") || m.includes("too many")) return "יותר מדי ניסיונות. נסו שוב בעוד כמה דקות.";
   if (m.includes("email") && m.includes("invalid")) return "כתובת האימייל לא תקינה.";
@@ -37,8 +46,11 @@ export function LoginView() {
   const toast = useStore((s) => s.toast);
   const next = params.get("next") || "/bookings";
   const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/bookings";
-  const [mode, setMode] = useState<Mode>(params.get("mode") === "signup" ? "signup" : "signin");
-  const [form, setForm] = useState({ name: "", user: "", password: "" });
+  const adminOnly = safeNext.startsWith("/admin");
+  const [chosenMode, setMode] = useState<Mode>(params.get("mode") === "signup" ? "signup" : "signin");
+  // The admin area has a single, pre-made account: sign-in only.
+  const mode: Mode = adminOnly ? "signin" : chosenMode;
+  const [form, setForm] = useState({ name: "", user: "", email: "", phone: "", password: "" });
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(params.get("error") ? "הכניסה לא הושלמה. נסו שוב." : null);
@@ -53,6 +65,10 @@ export function LoginView() {
     if (!user) return setError("הוסיפו שם משתמש.");
     if (mode === "signup" && !form.name.trim()) return setError("הוסיפו שם מלא.");
     if (mode === "signup" && !usernameOk(user)) return setError("שם משתמש: 3–30 תווים באנגלית, ספרות, נקודה, מקף או קו תחתון.");
+    const email = form.email.trim().toLowerCase();
+    const phone = normalizeMobile(form.phone);
+    if (mode === "signup" && !emailOk(email)) return setError("הוסיפו כתובת אימייל תקינה, למשל name@gmail.com.");
+    if (mode === "signup" && !phone) return setError("הוסיפו מספר נייד תקין, למשל 050-1234567.");
     if (form.password.length < 8) return setError("הסיסמה צריכה להיות באורך 8 תווים לפחות.");
 
     setBusy(true);
@@ -71,12 +87,17 @@ export function LoginView() {
       } else {
         const { data: taken } = await db.rpc("login_email", { p_username: user });
         if (taken) return setError("שם המשתמש הזה תפוס. בחרו שם אחר.");
-        const { error } = await db.auth.signUp({
+        const { data, error } = await db.auth.signUp({
           email: `${user}@${USERNAME_DOMAIN}`,
           password: form.password,
-          options: { data: { full_name: form.name.trim(), username: user } },
+          options: { data: { full_name: form.name.trim(), username: user, email, phone } },
         });
         if (error) return setError(explain(error.message));
+        // With email confirmation on, Supabase returns no session (and would try to mail the internal address).
+        if (!data.session) {
+          setMode("signin");
+          return setError("החשבון נוצר, אבל עדיין לא ניתן להיכנס אליו. נסו להיכנס בעוד רגע, ואם זה לא עובד פנו אלינו.");
+        }
       }
       toast(mode === "signin" ? "נכנסתם בהצלחה" : "החשבון נוצר. ברוכים הבאים!");
       router.push(safeNext);
@@ -92,9 +113,11 @@ export function LoginView() {
         <span aria-hidden className="grid size-12 place-items-center rounded-2xl bg-accent text-2xl font-extrabold text-white">
           ה
         </span>
-        <h1 className="mt-5 text-[28px] leading-tight font-extrabold tracking-tight">{mode === "signup" ? "הרשמה להפעילו" : "כניסה להפעילו"}</h1>
+        <h1 className="mt-5 text-[28px] leading-tight font-extrabold tracking-tight">{adminOnly ? "כניסה לניהול הפעילו" : mode === "signup" ? "הרשמה ללקוחות" : "כניסה להפעילו"}</h1>
         <p className="mt-2 text-[15px] leading-relaxed text-muted">
-          {reason ? (
+          {mode === "signup" ? (
+            "חשבון להורים ולמוסדות: שולחים בקשות להפעלות ועוקבים אחרי ההזמנות."
+          ) : reason ? (
             <span className="flex items-center gap-2">
               <reason.icon aria-hidden className="size-4 shrink-0 text-accent-ink" />
               {reason.text}
@@ -108,7 +131,7 @@ export function LoginView() {
           <p className="mt-6 rounded-xl bg-warning-soft px-4 py-3 text-[15px] text-warning">הכניסה תיפתח ברגע שמסד הנתונים יחובר.</p>
         ) : (
           <>
-            {(
+            {!adminOnly && (
               <Tabs
                 className="mt-6"
                 label="כניסה או הרשמה"
@@ -123,6 +146,14 @@ export function LoginView() {
                 ]}
               />
             )}
+            {mode === "signup" && (
+              <p className="mt-4 rounded-xl bg-sunken px-4 py-3 text-[14px] leading-relaxed text-muted">
+                יש לכם עסק של הפעלות?{" "}
+                <Link href="/operator/join" className="font-semibold text-accent-ink hover:underline">
+                  הצטרפו כמפעילים
+                </Link>
+              </p>
+            )}
             <form onSubmit={submit} noValidate className="mt-5 flex flex-col gap-4">
               {mode === "signup" && (
                 <Field label="שם מלא" htmlFor="l-name">
@@ -132,6 +163,16 @@ export function LoginView() {
               <Field label="שם משתמש" htmlFor="l-user" hint={mode === "signup" ? "באנגלית, למשל dana.levi" : undefined}>
                 <Input id="l-user" dir="ltr" className="text-end" autoComplete="username" autoCapitalize="none" spellCheck={false} value={form.user} onChange={set("user")} />
               </Field>
+              {mode === "signup" && (
+                <>
+                  <Field label="אימייל" htmlFor="l-email" hint="לאישורי הזמנות ועדכונים">
+                    <Input id="l-email" type="email" dir="ltr" className="text-end" autoComplete="email" autoCapitalize="none" spellCheck={false} value={form.email} onChange={set("email")} />
+                  </Field>
+                  <Field label="טלפון נייד" htmlFor="l-phone" hint="למשל 050-1234567">
+                    <Input id="l-phone" type="tel" inputMode="tel" dir="ltr" className="text-end" autoComplete="tel" value={form.phone} onChange={set("phone")} />
+                  </Field>
+                </>
+              )}
               {(
                 <Field label="סיסמה" htmlFor="l-password" hint={mode === "signup" ? "לפחות 8 תווים" : undefined}>
                   <div className="relative">

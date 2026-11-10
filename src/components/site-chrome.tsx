@@ -221,6 +221,7 @@ export function FlowHeader({ backHref, backLabel, secure }: { backHref?: string;
 }
 
 export function SiteFooter() {
+  const isAdmin = useStore((s) => s.session.isAdmin);
   const cols = [
     { title: "לקוחות", links: [["/search", "חיפוש הפעלות"], ["/bookings", "ההזמנות שלי"], ["/#how", "איך זה עובד"], ["/institutions", "למוסדות"]] },
     { title: "מפעילים", links: [["/operator/join", "הצטרפות"], ["/operator", "כניסה למפעילים"], ["/operator/join#plans", "מסלולים ומחירים"]] },
@@ -251,7 +252,7 @@ export function SiteFooter() {
       <div className="border-t border-line">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-5 text-sm text-muted sm:px-6">
           <p>© 2026 הפעילו · כל המחירים כוללים מע״מ</p>
-          <Link href="/login?next=%2Fadmin" className="font-semibold text-muted hover:text-ink">
+          <Link href={isAdmin ? "/admin" : "/login?next=%2Fadmin"} className="font-semibold text-muted hover:text-ink">
             כניסה לניהול
           </Link>
         </div>

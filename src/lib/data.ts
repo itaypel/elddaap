@@ -141,6 +141,10 @@ export type Operator = {
   insuranceUntil: string;
   bookingsCount: number;
   blockedDates: string[];
+  /** Public URL of the logo / profile image, if uploaded */
+  logo: string | null;
+  /** Public URLs of activity photos; the first is the cover */
+  photos: string[];
 };
 
 export const priceFrom = (o: Pick<Operator, "packages">) => {
