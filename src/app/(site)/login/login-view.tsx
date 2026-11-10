@@ -9,7 +9,10 @@ import { supabaseConfigured } from "@/lib/supabase/env";
 import { useStore } from "@/lib/store";
 import { Button, Card, Field, Input, Tabs } from "@/components/ui";
 
-type Mode = "signin" | "signup" | "reset";
+type Mode = "signin" | "signup";
+
+export const USERNAME_DOMAIN = "users.elddaap.app";
+const usernameOk = (u: string) => /^[a-z0-9][a-z0-9._-]{2,29}$/.test(u);
 
 const reasons: Record<string, { icon: typeof Store; text: string }> = {
   operator: { icon: Store, text: "כדי לנהל את העסק שלכם כמפעיל" },
@@ -35,11 +38,10 @@ export function LoginView() {
   const next = params.get("next") || "/bookings";
   const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/bookings";
   const [mode, setMode] = useState<Mode>(params.get("mode") === "signup" ? "signup" : "signin");
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [form, setForm] = useState({ name: "", user: "", password: "" });
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(params.get("error") ? "הכניסה לא הושלמה. נסו שוב." : null);
-  const [resetSent, setResetSent] = useState(false);
 
   const reason = safeNext.startsWith("/admin") ? reasons.admin : safeNext.startsWith("/operator") ? reasons.operator : safeNext.startsWith("/book") ? reasons.booking : null;
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [k]: e.target.value });
@@ -47,26 +49,35 @@ export function LoginView() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    const email = form.email.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setError("כתובת האימייל לא תקינה.");
-    if (mode !== "reset" && form.password.length < 8) return setError("הסיסמה צריכה להיות באורך 8 תווים לפחות.");
+    const user = form.user.trim().toLowerCase();
+    if (!user) return setError("הוסיפו שם משתמש.");
     if (mode === "signup" && !form.name.trim()) return setError("הוסיפו שם מלא.");
+    if (mode === "signup" && !usernameOk(user)) return setError("שם משתמש: 3–30 תווים באנגלית, ספרות, נקודה, מקף או קו תחתון.");
+    if (form.password.length < 8) return setError("הסיסמה צריכה להיות באורך 8 תווים לפחות.");
 
     setBusy(true);
     const db = supabaseBrowser();
     try {
-      if (mode === "reset") {
-        const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent("/auth/reset")}`;
-        const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo });
+      if (mode === "signin") {
+        // Accept a username or, for older accounts, an email address.
+        let email = user;
+        if (!user.includes("@")) {
+          const { data } = await db.rpc("login_email", { p_username: user });
+          if (!data) return setError("שם המשתמש או הסיסמה לא נכונים.");
+          email = data as string;
+        }
+        const { error } = await db.auth.signInWithPassword({ email, password: form.password });
+        if (error) return setError(error.message.toLowerCase().includes("invalid login") ? "שם המשתמש או הסיסמה לא נכונים." : explain(error.message));
+      } else {
+        const { data: taken } = await db.rpc("login_email", { p_username: user });
+        if (taken) return setError("שם המשתמש הזה תפוס. בחרו שם אחר.");
+        const { error } = await db.auth.signUp({
+          email: `${user}@${USERNAME_DOMAIN}`,
+          password: form.password,
+          options: { data: { full_name: form.name.trim(), username: user } },
+        });
         if (error) return setError(explain(error.message));
-        setResetSent(true);
-        return;
       }
-      const { error } =
-        mode === "signin"
-          ? await db.auth.signInWithPassword({ email, password: form.password })
-          : await db.auth.signUp({ email, password: form.password, options: { data: { full_name: form.name.trim() } } });
-      if (error) return setError(explain(error.message));
       toast(mode === "signin" ? "נכנסתם בהצלחה" : "החשבון נוצר. ברוכים הבאים!");
       router.push(safeNext);
       router.refresh();
@@ -81,15 +92,13 @@ export function LoginView() {
         <span aria-hidden className="grid size-12 place-items-center rounded-2xl bg-accent text-2xl font-extrabold text-white">
           ה
         </span>
-        <h1 className="mt-5 text-[28px] leading-tight font-extrabold tracking-tight">{mode === "reset" ? "איפוס סיסמה" : mode === "signup" ? "הרשמה להפעילו" : "כניסה להפעילו"}</h1>
+        <h1 className="mt-5 text-[28px] leading-tight font-extrabold tracking-tight">{mode === "signup" ? "הרשמה להפעילו" : "כניסה להפעילו"}</h1>
         <p className="mt-2 text-[15px] leading-relaxed text-muted">
           {reason ? (
             <span className="flex items-center gap-2">
               <reason.icon aria-hidden className="size-4 shrink-0 text-accent-ink" />
               {reason.text}
             </span>
-          ) : mode === "reset" ? (
-            "נשלח לכם קישור לבחירת סיסמה חדשה."
           ) : (
             "כדי לשלוח בקשות, לעקוב אחרי הזמנות או לנהל עסק כמפעיל."
           )}
@@ -97,13 +106,9 @@ export function LoginView() {
 
         {!supabaseConfigured ? (
           <p className="mt-6 rounded-xl bg-warning-soft px-4 py-3 text-[15px] text-warning">הכניסה תיפתח ברגע שמסד הנתונים יחובר.</p>
-        ) : resetSent ? (
-          <div role="status" className="mt-6 rounded-xl bg-success-soft px-4 py-4 text-[15px] leading-relaxed text-success">
-            אם יש חשבון עם {form.email}, נשלח אליו קישור לאיפוס הסיסמה. כדאי לבדוק גם בתיקיית הספאם.
-          </div>
         ) : (
           <>
-            {mode !== "reset" && (
+            {(
               <Tabs
                 className="mt-6"
                 label="כניסה או הרשמה"
@@ -124,10 +129,10 @@ export function LoginView() {
                   <Input id="l-name" autoComplete="name" value={form.name} onChange={set("name")} />
                 </Field>
               )}
-              <Field label="אימייל" htmlFor="l-email">
-                <Input id="l-email" type="email" dir="ltr" className="text-end" autoComplete={mode === "signup" ? "email" : "username"} inputMode="email" value={form.email} onChange={set("email")} />
+              <Field label="שם משתמש" htmlFor="l-user" hint={mode === "signup" ? "באנגלית, למשל dana.levi" : undefined}>
+                <Input id="l-user" dir="ltr" className="text-end" autoComplete="username" autoCapitalize="none" spellCheck={false} value={form.user} onChange={set("user")} />
               </Field>
-              {mode !== "reset" && (
+              {(
                 <Field label="סיסמה" htmlFor="l-password" hint={mode === "signup" ? "לפחות 8 תווים" : undefined}>
                   <div className="relative">
                     <Input
@@ -160,19 +165,10 @@ export function LoginView() {
 
               <Button type="submit" size="lg" disabled={busy}>
                 {busy && <Loader2 aria-hidden className="size-5 animate-spin" />}
-                {mode === "signin" ? "כניסה" : mode === "signup" ? "יצירת חשבון" : "שליחת קישור לאיפוס"}
+                {mode === "signin" ? "כניסה" : "יצירת חשבון"}
               </Button>
 
-              {mode === "signin" && (
-                <Button variant="link" className="self-center" onClick={() => { setMode("reset"); setError(null); }}>
-                  שכחתי סיסמה
-                </Button>
-              )}
-              {mode === "reset" && (
-                <Button variant="link" className="self-center" onClick={() => { setMode("signin"); setError(null); }}>
-                  חזרה לכניסה
-                </Button>
-              )}
+              {mode === "signin" && <p className="text-center text-[13px] text-muted">שכחתם סיסמה? פנו למנהל האתר.</p>}
             </form>
           </>
         )}

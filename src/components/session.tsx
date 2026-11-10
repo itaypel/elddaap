@@ -31,7 +31,7 @@ export function SessionLoader() {
         return;
       }
       const [profile, operator, saved, unread] = await Promise.all([
-        db.from("profiles").select("full_name, avatar_url, is_admin").eq("id", user.id).maybeSingle(),
+        db.from("profiles").select("full_name, avatar_url, is_admin, username").eq("id", user.id).maybeSingle(),
         db.from("operators").select("id, slug, status").eq("owner_id", user.id).maybeSingle(),
         db.from("saved_operators").select("operator_id").eq("user_id", user.id),
         db.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("audience", "customer").eq("read", false),
@@ -40,7 +40,7 @@ export function SessionLoader() {
       setSession({
         status: "signedIn",
         userId: user.id,
-        email: user.email,
+        email: profile.data?.username ?? (user.email?.endsWith("@users.elddaap.app") ? undefined : user.email),
         name: profile.data?.full_name || user.user_metadata?.full_name || user.email,
         avatarUrl: profile.data?.avatar_url ?? user.user_metadata?.avatar_url ?? null,
         isAdmin: !!profile.data?.is_admin,

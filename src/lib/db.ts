@@ -144,6 +144,7 @@ const toNotice = (r: any): Notice => ({ id: r.id, audience: r.audience, text: r.
 const toProfile = (r: any): Profile => ({
   id: r.id,
   fullName: r.full_name,
+  username: r.username ?? null,
   email: r.email ?? "",
   phone: r.phone ?? "",
   avatarUrl: r.avatar_url,

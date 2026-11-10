@@ -15,6 +15,7 @@ const items = [
   { href: "/admin/catalog#promos", label: "מבצעים וקידום" },
   { href: "/admin#reports", label: "דוחות" },
   { href: "/admin/catalog#rules", label: "עמלות והגדרות" },
+  { href: "/admin/account", label: "החשבון שלי" },
 ];
 
 export function AdminNav({ badges }: { badges: { approvals: number; complaints: number } }) {

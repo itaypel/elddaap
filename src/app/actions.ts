@@ -119,6 +119,18 @@ export async function updateProfile(p: { fullName?: string; phone?: string; pref
   return { ok: true };
 }
 
+export async function updateUsername(username: string): Promise<Result> {
+  const user = await getUser();
+  if (!user) return { ok: false, error: "צריך להתחבר." };
+  const u = username.trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9._-]{2,29}$/.test(u)) return { ok: false, error: "שם משתמש: 3–30 תווים באנגלית, ספרות, נקודה, מקף או קו תחתון." };
+  const db = await supabaseServer();
+  const { error } = await db.from("profiles").update({ username: u }).eq("id", user.id);
+  if (error) return { ok: false, error: error.code === "23505" ? "שם המשתמש הזה תפוס. בחרו שם אחר." : explain(error.message) };
+  revalidatePath("/admin/account");
+  return { ok: true };
+}
+
 export async function submitLead(f: {
   orgType: string; org: string; contact: string; phone: string; email: string; date: string; kids: string; cats: string[]; budget: string; notes: string;
 }): Promise<Result> {

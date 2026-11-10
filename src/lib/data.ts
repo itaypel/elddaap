@@ -216,6 +216,7 @@ export type Notice = { id: string; audience: "customer" | "operator"; text: stri
 export type Profile = {
   id: string;
   fullName: string;
+  username: string | null;
   email: string;
   phone: string;
   avatarUrl: string | null;
