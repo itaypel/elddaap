@@ -27,6 +27,9 @@ export function SessionLoader() {
       const { data } = await db.auth.getUser();
       const user = data.user;
       if (!user) {
+        // A token for an account that no longer exists: clear it so the server stops treating it as signed in.
+        const { data: local } = await db.auth.getSession();
+        if (local.session) await db.auth.signOut({ scope: "local" });
         if (!cancelled) setSession({ status: "signedOut", userId: undefined, operator: null, saved: [], unread: 0, isAdmin: false });
         return;
       }

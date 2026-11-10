@@ -36,7 +36,9 @@ export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
   // Already signed in: the login page has nothing to offer, go straight to where they were heading.
-  if (data?.claims && path === "/login") {
+  // getClaims only checks the token's signature, so confirm the account still exists (it may have
+  // been deleted) before redirecting; otherwise a stale cookie would make /login unreachable.
+  if (data?.claims && path === "/login" && (await supabase.auth.getUser()).data.user) {
     const url = request.nextUrl.clone();
     const [pathname, search = ""] = safeNext(request.nextUrl.searchParams.get("next")).split("?");
     url.pathname = pathname;
