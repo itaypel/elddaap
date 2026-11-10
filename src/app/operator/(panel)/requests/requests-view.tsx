@@ -5,23 +5,23 @@ import { useRef, useState } from "react";
 import { TriangleAlert } from "lucide-react";
 import {
   type Booking,
-  COMMISSION,
-  CURRENT_OPERATOR,
+  type Operator,
+  type Settings,
   addMinutes,
-  bookingTotal,
   dayLabel,
   locationTypes,
   money,
-  operatorBySlug,
   overlaps,
-  packageOf,
   pre,
   shortDate,
   statusMeta,
+  todayIso,
   weekday,
 } from "@/lib/data";
+import { approveBooking, declineBooking, proposeBooking } from "@/app/actions";
 import { useStore } from "@/lib/store";
 import { hoursLeft } from "@/lib/ops";
+import { useAction } from "@/components/use-action";
 import { Sheet } from "@/components/sheet";
 import { Badge, Button, Card, Field, Input, PageTitle, Radio, Select, StatusTrack, Tabs, Textarea, cx } from "@/components/ui";
 
@@ -30,11 +30,10 @@ type Tab = "new" | "payment" | "approved" | "closed";
 const inTab = (b: Booking, t: Tab) =>
   t === "new" ? b.status === "pending" : t === "payment" ? b.status === "awaiting_payment" : t === "approved" ? b.status === "confirmed" || b.status === "completed" : b.status === "cancelled" || b.status === "declined";
 
-export function RequestsView() {
+export function RequestsView({ op, bookings: all, settings }: { op: Operator; bookings: Booking[]; settings: Settings }) {
   const params = useSearchParams();
-  const all = useStore((s) => s.bookings).filter((b) => b.operatorSlug === CURRENT_OPERATOR);
   const [tab, setTab] = useState<Tab>("new");
-  const list = all.filter((b) => inTab(b, tab)).sort((a, b) => (tab === "new" ? hoursLeft(a) - hoursLeft(b) : a.date.localeCompare(b.date)));
+  const list = all.filter((b) => inTab(b, tab)).sort((a, b) => (tab === "new" ? hoursLeft(a, settings.replyHours) - hoursLeft(b, settings.replyHours) : a.date.localeCompare(b.date)));
   const [selectedId, setSelectedId] = useState<number | null>(Number(params.get("id")) || null);
   const selected = list.find((b) => b.id === selectedId) ?? list[0];
   const detailRef = useRef<HTMLDivElement>(null);
@@ -70,7 +69,7 @@ export function RequestsView() {
           <ul className="flex flex-col gap-2" aria-label="רשימת בקשות">
             {list.map((b) => {
               const active = selected?.id === b.id;
-              const h = hoursLeft(b);
+              const h = hoursLeft(b, settings.replyHours);
               return (
                 <li key={b.id}>
                   <button
@@ -87,10 +86,10 @@ export function RequestsView() {
                       {b.status === "pending" && <span className={cx("shrink-0 text-[13px] font-bold", h <= 8 ? "text-danger" : "text-warning")}>נותרו {h} שעות</span>}
                     </span>
                     <span className="mt-1 block text-[15px]">
-                      {b.eventType} · {weekday(b.date)} {shortDate(b.date)}, {b.time}–{addMinutes(b.time, packageOf(b)?.durationMin ?? 90)}
+                      {b.eventType} · {weekday(b.date)} {shortDate(b.date)}, {b.time}–{addMinutes(b.time, b.pkg.durationMin)}
                     </span>
                     <span className="mt-0.5 block text-sm text-muted">
-                      {packageOf(b)?.name} · {b.kids} ילדים · גילאי {b.ageRange} · {money(bookingTotal(b))}
+                      {b.pkg.name} · {b.kids} ילדים · גילאי {b.ageRange} · {money(b.total)}
                     </span>
                   </button>
                 </li>
@@ -98,7 +97,7 @@ export function RequestsView() {
             })}
           </ul>
           <div ref={detailRef} className="scroll-mt-20">
-            {selected && <RequestDetail key={selected.id} b={selected} all={all} />}
+            {selected && <RequestDetail key={selected.id} b={selected} all={all} op={op} settings={settings} />}
           </div>
         </div>
       )}
@@ -106,27 +105,24 @@ export function RequestsView() {
   );
 }
 
-function RequestDetail({ b, all }: { b: Booking; all: Booking[] }) {
-  const approve = useStore((s) => s.approve);
-  const decline = useStore((s) => s.decline);
-  const propose = useStore((s) => s.propose);
+function RequestDetail({ b, all, op, settings }: { b: Booking; all: Booking[]; op: Operator; settings: Settings }) {
   const toast = useStore((s) => s.toast);
+  const [run, pending] = useAction();
   const [proposeOpen, setProposeOpen] = useState(false);
   const [declineOpen, setDeclineOpen] = useState(false);
   const [msgOpen, setMsgOpen] = useState(false);
-  const [alt, setAlt] = useState({ date: b.date, time: "12:30" });
+  const [alt, setAlt] = useState({ date: b.date, time: op.slots.find((t) => t !== b.time) ?? b.time });
   const [reason, setReason] = useState("busy");
   const [msg, setMsg] = useState("");
 
-  const pkg = packageOf(b);
-  const total = bookingTotal(b);
-  const net = Math.round(total * (1 - COMMISSION));
+  const pkg = b.pkg;
+  const total = b.total;
+  const net = Math.round(total * (1 - settings.commission));
   const meta = statusMeta[b.status];
-  const end = addMinutes(b.time, pkg?.durationMin ?? 90);
+  const end = addMinutes(b.time, pkg.durationMin);
   const clashes = all.filter((o) => o.id !== b.id && (o.status === "pending" || o.status === "awaiting_payment" || o.status === "confirmed") && overlaps(o, b));
   const blockingClash = clashes.find((o) => o.status !== "pending");
-  const h = hoursLeft(b);
-  const op = operatorBySlug(b.operatorSlug)!;
+  const h = hoursLeft(b, settings.replyHours);
 
   return (
     <Card className="p-5 sm:p-6">
@@ -150,7 +146,7 @@ function RequestDetail({ b, all }: { b: Booking; all: Booking[] }) {
           ["מתי", `${weekday(b.date)} ${shortDate(b.date)}, ${b.time}–${end}`],
           ["איפה", `${b.city} · ${b.distanceKm} ק״מ מכם`],
           ["ילדים", `${b.kids} · גילאי ${b.ageRange}`],
-          ["חבילה", pkg?.name ?? "—"],
+          ["חבילה", pkg.name || "—"],
           ["מחיר ללקוח", money(total)],
           ["יגיע אליכם אחרי עמלה", money(net)],
           ["מקום", locationTypes.find((l) => l.id === b.locationType)?.short ?? "—"],
@@ -193,11 +189,9 @@ function RequestDetail({ b, all }: { b: Booking; all: Booking[] }) {
             <div className="flex flex-wrap gap-2">
               <Button
                 size="lg"
-                disabled={!!blockingClash}
+                disabled={!!blockingClash || pending}
                 onClick={() => {
-                  const r = approve(b.id);
-                  if (r.ok) toast(`אישרתם את הבקשה של ${b.customerName}. הלקוח קיבל הודעה.`);
-                  else toast(r.reason ?? "אי אפשר לאשר כרגע", "danger");
+                  run(() => approveBooking(b.id), { success: `אישרתם את הבקשה של ${b.customerName}. הלקוח קיבל הודעה.` });
                 }}
               >
                 אישור הבקשה
@@ -238,9 +232,7 @@ function RequestDetail({ b, all }: { b: Booking; all: Booking[] }) {
           <Button
             className="w-full"
             onClick={() => {
-              propose(b.id, alt.date, alt.time);
-              setProposeOpen(false);
-              toast("ההצעה נשלחה ללקוח");
+              run(() => proposeBooking(b.id, alt.date, alt.time), { success: "ההצעה נשלחה ללקוח", onDone: () => setProposeOpen(false) });
             }}
           >
             שליחת ההצעה
@@ -250,7 +242,7 @@ function RequestDetail({ b, all }: { b: Booking; all: Booking[] }) {
         <p className="mb-4 text-[15px] text-muted">הלקוח יקבל את ההצעה ויוכל לאשר אותה בלחיצה. הבקשה נשארת פתוחה עד שיענה.</p>
         <div className="grid grid-cols-2 gap-3">
           <Field label="תאריך" htmlFor="alt-date">
-            <Input id="alt-date" type="date" min="2026-11-08" value={alt.date} onChange={(e) => setAlt({ ...alt, date: e.target.value })} />
+            <Input id="alt-date" type="date" min={todayIso()} value={alt.date} onChange={(e) => setAlt({ ...alt, date: e.target.value })} />
           </Field>
           <Field label="שעה" htmlFor="alt-time">
             <Select id="alt-time" value={alt.time} onChange={(e) => setAlt({ ...alt, time: e.target.value })}>
@@ -274,9 +266,7 @@ function RequestDetail({ b, all }: { b: Booking; all: Booking[] }) {
             <Button
               variant="danger"
               onClick={() => {
-                decline(b.id);
-                setDeclineOpen(false);
-                toast("הבקשה נדחתה. הלקוח יקבל הצעות ממפעילים אחרים.", "neutral");
+                run(() => declineBooking(b.id), { success: "הבקשה נדחתה. הלקוח יקבל הצעות ממפעילים אחרים.", tone: "neutral", onDone: () => setDeclineOpen(false) });
               }}
             >
               דחיית הבקשה

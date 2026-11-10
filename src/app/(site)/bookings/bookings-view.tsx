@@ -6,51 +6,59 @@ import { useEffect, useRef, useState } from "react";
 import { CalendarPlus, Heart } from "lucide-react";
 import {
   type Booking,
-  bookingTotal,
+  type Notice,
+  type Operator,
+  type Profile,
   categoryById,
   dayLabel,
   depositOf,
   durationText,
   money,
-  operatorBySlug,
-  packageOf,
-  parseDate,
+  plusDays,
   pre,
   priceFrom,
   shortDate,
   statusMeta,
 } from "@/lib/data";
-import { useMyBookings, useStore } from "@/lib/store";
+import { acceptProposal, cancelBooking, markAllRead, updateProfile } from "@/app/actions";
 import { downloadIcs } from "@/lib/ics";
+import { useAction } from "@/components/use-action";
 import { OperatorMedia } from "@/components/brand";
 import { Sheet } from "@/components/sheet";
 import { Badge, Button, ButtonLink, Card, CardHeader, Checkbox, Field, Input, PageTitle, StatusTrack, Tabs, Textarea, cx } from "@/components/ui";
+import { useStore } from "@/lib/store";
 
 type Tab = "active" | "past" | "cancelled";
 
-const plusDays = (iso: string, n: number) => {
-  const d = parseDate(iso);
-  d.setDate(d.getDate() + n);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
-
-export function BookingsView() {
+export function BookingsView({
+  bookings,
+  notices,
+  saved,
+  profile,
+  deposit,
+}: {
+  bookings: Booking[];
+  notices: Notice[];
+  saved: Operator[];
+  profile: Profile | null;
+  deposit: number;
+}) {
   const params = useSearchParams();
   const newId = Number(params.get("new")) || null;
-  const mine = useMyBookings();
   const [tab, setTab] = useState<Tab>("active");
 
   const groups: Record<Tab, Booking[]> = {
-    active: mine.filter((b) => b.status === "pending" || b.status === "awaiting_payment" || b.status === "confirmed" || (b.status === "completed" && !b.rated)),
-    past: mine.filter((b) => b.status === "completed" && b.rated),
-    cancelled: mine.filter((b) => b.status === "cancelled" || b.status === "declined"),
+    active: bookings.filter((b) => b.status === "pending" || b.status === "awaiting_payment" || b.status === "confirmed" || (b.status === "completed" && !b.rated)),
+    past: bookings.filter((b) => b.status === "completed" && b.rated),
+    cancelled: bookings.filter((b) => b.status === "cancelled" || b.status === "declined"),
   };
   const sortKey = (b: Booking) => (b.id === newId ? -1 : b.status === "completed" ? 2 : 0);
   const list = [...groups[tab]].sort((a, b) => sortKey(a) - sortKey(b) || a.date.localeCompare(b.date));
+  const first = profile?.fullName.split(" ")[0];
 
   return (
     <div className="mx-auto max-w-6xl px-4 pt-8 pb-10 sm:px-6 sm:pt-10">
-      <PageTitle title="ההזמנות שלי" sub="כל הבקשות, האישורים והתשלומים במקום אחד" />
+      <PageTitle title="ההזמנות שלי" sub={first ? `שלום ${first}. כל הבקשות, האישורים והתשלומים במקום אחד.` : "כל הבקשות, האישורים והתשלומים במקום אחד"} />
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_340px]">
         <section aria-label="הזמנות">
           <Tabs
@@ -65,40 +73,36 @@ export function BookingsView() {
           />
           {list.length === 0 ? (
             <Card className="mt-4 flex flex-col items-center gap-3 px-6 py-14 text-center">
-              <p className="text-lg font-bold">{tab === "cancelled" ? "אין הזמנות שבוטלו" : "אין כאן הזמנות עדיין"}</p>
-              <p className="text-[15px] text-muted">מוצאים מפעיל, שולחים בקשה, והיא תופיע כאן עם כל הסטטוסים.</p>
+              <p className="text-lg font-bold">{tab === "cancelled" ? "אין הזמנות שבוטלו" : tab === "past" ? "עוד אין הזמנות קודמות" : "עוד אין כאן הזמנות"}</p>
+              <p className="max-w-sm text-[15px] text-muted">מוצאים מפעיל, שולחים בקשה, והיא תופיע כאן עם כל הסטטוסים: אישור, תשלום ודירוג.</p>
               <ButtonLink href="/search">חיפוש הפעלות</ButtonLink>
             </Card>
           ) : (
             <ul className="mt-4 flex flex-col gap-4">
               {list.map((b) => (
-                <BookingCard key={b.id} b={b} highlight={b.id === newId} />
+                <BookingCard key={b.id} b={b} highlight={b.id === newId} deposit={deposit} />
               ))}
             </ul>
           )}
         </section>
         <aside className="flex flex-col gap-4">
-          <NoticesCard />
-          <PrefsCard />
-          <SavedCard />
-          <DetailsCard />
+          <NoticesCard notices={notices} />
+          {profile && <PrefsCard profile={profile} />}
+          <SavedCard saved={saved} />
+          {profile && <DetailsCard profile={profile} />}
         </aside>
       </div>
     </div>
   );
 }
 
-function BookingCard({ b, highlight }: { b: Booking; highlight: boolean }) {
-  const op = operatorBySlug(b.operatorSlug)!;
-  const pkg = packageOf(b);
-  const total = bookingTotal(b);
+function BookingCard({ b, highlight, deposit }: { b: Booking; highlight: boolean; deposit: number }) {
+  const op = b.operator;
   const meta = statusMeta[b.status];
   const ref = useRef<HTMLLIElement>(null);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [msgOpen, setMsgOpen] = useState(false);
-  const cancel = useStore((s) => s.cancel);
-  const acceptProposal = useStore((s) => s.acceptProposal);
-  const toast = useStore((s) => s.toast);
+  const [run, pending] = useAction();
 
   useEffect(() => {
     if (highlight) ref.current?.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -109,13 +113,12 @@ function BookingCard({ b, highlight }: { b: Booking; highlight: boolean }) {
   const tone = b.proposal ? "warning" : meta.tone;
 
   let priceSub = "לא חויבתם";
-  if (b.status === "awaiting_payment") priceSub = `מקדמה: ${money(depositOf(b))}`;
-  if (b.status === "confirmed") priceSub = `שולמה מקדמה ${money(b.paid)}`;
+  if (b.status === "awaiting_payment") priceSub = `מקדמה: ${money(depositOf(b, deposit))}`;
+  if (b.status === "confirmed") priceSub = `שולמו ${money(b.paid)}`;
   if (b.status === "completed") priceSub = "שולם במלואו";
 
   const payBy = plusDays(b.date, -5);
-  // createdAt may be UTC (new requests) or local (seed data); Date handles both.
-  const replyAt = new Date(new Date(b.createdAt).getTime() + 24 * 36e5);
+  const replyAt = new Date(new Date(b.createdAt).getTime() + op.responseHours * 36e5);
   const replyBy = `${replyAt.getDate()}.${replyAt.getMonth() + 1} ב־${String(replyAt.getHours()).padStart(2, "0")}:${String(replyAt.getMinutes()).padStart(2, "0")}`;
 
   return (
@@ -136,14 +139,14 @@ function BookingCard({ b, highlight }: { b: Booking; highlight: boolean }) {
                   {highlight && <Badge tone="accent">חדש</Badge>}
                 </div>
                 <p className="mt-1 text-[15px] text-muted">
-                  {pkg?.name} · {pkg && durationText(pkg.durationMin)} · {b.kids} ילדים
+                  {b.pkg.name} · {durationText(b.pkg.durationMin)} · {b.kids} ילדים
                 </p>
                 <p className="text-sm text-muted">
                   {dayLabel(b.date)}, {b.time} · {b.city} · הזמנה #{b.id}
                 </p>
               </div>
               <div className="text-end">
-                <p className="text-xl font-extrabold tabular">{money(total)}</p>
+                <p className="text-xl font-extrabold tabular">{money(b.total)}</p>
                 <p className="text-[13px] text-muted">{priceSub}</p>
               </div>
             </div>
@@ -176,13 +179,7 @@ function BookingCard({ b, highlight }: { b: Booking; highlight: boolean }) {
                 <Button variant="secondary" size="sm" onClick={() => setCancelOpen(true)}>
                   ביטול הבקשה
                 </Button>
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    acceptProposal(b.id);
-                    toast("המועד החדש אושר. אפשר לשלם מקדמה.");
-                  }}
-                >
+                <Button size="sm" disabled={pending} onClick={() => run(() => acceptProposal(b.id), { success: "המועד החדש אושר. אפשר לשלם מקדמה." })}>
                   אישור המועד החדש
                 </Button>
               </>
@@ -228,7 +225,7 @@ function BookingCard({ b, highlight }: { b: Booking; highlight: boolean }) {
               </>
             ) : (
               <ButtonLink href={`/search?cat=${op.category}&date=${b.date}`} size="sm" variant="secondary">
-                מפעילים אחרים ב{categoryById[op.category].name}
+                מפעילים אחרים ב{categoryById[op.category]?.name}
               </ButtonLink>
             )}
           </div>
@@ -246,11 +243,8 @@ function BookingCard({ b, highlight }: { b: Booking; highlight: boolean }) {
             </Button>
             <Button
               variant="danger"
-              onClick={() => {
-                cancel(b.id);
-                setCancelOpen(false);
-                toast("הבקשה בוטלה", "neutral");
-              }}
+              disabled={pending}
+              onClick={() => run(() => cancelBooking(b.id), { success: "הבקשה בוטלה", tone: "neutral", onDone: () => setCancelOpen(false) })}
             >
               ביטול הבקשה
             </Button>
@@ -292,13 +286,13 @@ function MessageSheet({ open, onClose, to }: { open: boolean; onClose: () => voi
       <Field label="ההודעה" htmlFor="msg-text">
         <Textarea id="msg-text" rows={5} value={text} onChange={(e) => setText(e.target.value)} placeholder="למשל: אפשר להגיע חצי שעה מוקדם יותר?" />
       </Field>
+      <p className="mt-3 text-[13px] text-muted">בקרוב: שיחה עם המפעיל ישירות מכאן. בינתיים ההודעה לא נשמרת.</p>
     </Sheet>
   );
 }
 
-function NoticesCard() {
-  const notices = useStore((s) => s.notices).filter((n) => n.audience === "customer");
-  const markAllRead = useStore((s) => s.markAllRead);
+function NoticesCard({ notices }: { notices: Notice[] }) {
+  const [run] = useAction();
   const unread = notices.some((n) => !n.read);
   return (
     <Card className="p-5">
@@ -306,73 +300,36 @@ function NoticesCard() {
         title="התראות"
         action={
           unread && (
-            <Button variant="link" size="sm" onClick={() => markAllRead("customer")}>
+            <Button variant="link" size="sm" onClick={() => run(() => markAllRead("customer"))}>
               סימון הכול כנקרא
             </Button>
           )
         }
       />
-      <ul className="mt-3 divide-y divide-line">
-        {notices.slice(0, 5).map((n) => {
-          const body = (
-            <span className="flex gap-3 py-3">
-              <span aria-hidden className={cx("mt-2 size-2 shrink-0 rounded-full", n.read ? "bg-line-strong" : "bg-accent")} />
-              <span>
-                <span className={cx("block text-[15px] leading-snug", !n.read && "font-bold")}>{n.text}</span>
-                <span className="text-[13px] text-muted">{n.at}</span>
-                {!n.read && <span className="sr-only"> (חדש)</span>}
-              </span>
-            </span>
-          );
-          return <li key={n.id}>{n.href ? <Link href={n.href} className="block rounded-lg hover:bg-sunken">{body}</Link> : body}</li>;
-        })}
-      </ul>
-    </Card>
-  );
-}
-
-function PrefsCard() {
-  const prefs = useStore((s) => s.prefs);
-  const setPrefs = useStore((s) => s.setPrefs);
-  return (
-    <Card className="p-5">
-      <CardHeader title="איך לעדכן אותי" />
-      <div className="mt-2">
-        <Checkbox label="הודעת וואטסאפ" checked={prefs.whatsapp} onChange={() => setPrefs({ whatsapp: !prefs.whatsapp })} />
-        <Checkbox label="SMS" checked={prefs.sms} onChange={() => setPrefs({ sms: !prefs.sms })} />
-        <Checkbox label="אימייל" checked={prefs.email} onChange={() => setPrefs({ email: !prefs.email })} />
-        <Checkbox label="תזכורת יום לפני האירוע" checked={prefs.reminder} onChange={() => setPrefs({ reminder: !prefs.reminder })} />
-      </div>
-    </Card>
-  );
-}
-
-function SavedCard() {
-  const saved = useStore((s) => s.saved);
-  return (
-    <Card className="p-5">
-      <CardHeader title="מפעילים ששמרתי" />
-      {saved.length === 0 ? (
-        <p className="mt-3 flex items-center gap-2 text-sm text-muted">
-          <Heart aria-hidden className="size-4" />
-          לוחצים על הלב בכרטיס מפעיל כדי לשמור אותו כאן.
-        </p>
+      {notices.length === 0 ? (
+        <p className="mt-3 text-sm text-muted">אישורים, תזכורות ועדכונים מהמפעילים יופיעו כאן.</p>
       ) : (
-        <ul className="mt-3 flex flex-col gap-1">
-          {saved.map((slug) => {
-            const op = operatorBySlug(slug);
-            if (!op) return null;
+        <ul className="mt-3 divide-y divide-line">
+          {notices.slice(0, 6).map((n) => {
+            const body = (
+              <span className="flex gap-3 py-3">
+                <span aria-hidden className={cx("mt-2 size-2 shrink-0 rounded-full", n.read ? "bg-line-strong" : "bg-accent")} />
+                <span>
+                  <span className={cx("block text-[15px] leading-snug", !n.read && "font-bold")}>{n.text}</span>
+                  <span className="text-[13px] text-muted">{n.at}</span>
+                  {!n.read && <span className="sr-only"> (חדש)</span>}
+                </span>
+              </span>
+            );
             return (
-              <li key={slug}>
-                <Link href={`/operators/${slug}`} className="-mx-2 flex items-center gap-3 rounded-xl p-2 hover:bg-sunken">
-                  <OperatorMedia category={op.category} className="size-12 shrink-0 rounded-lg" iconClassName="size-5" />
-                  <span>
-                    <span className="block font-bold">{op.name}</span>
-                    <span className="text-[13px] text-muted">
-                      {categoryById[op.category].name} · החל מ־{money(priceFrom(op))}
-                    </span>
-                  </span>
-                </Link>
+              <li key={n.id}>
+                {n.href ? (
+                  <Link href={n.href} className="block rounded-lg hover:bg-sunken">
+                    {body}
+                  </Link>
+                ) : (
+                  body
+                )}
               </li>
             );
           })}
@@ -382,12 +339,61 @@ function SavedCard() {
   );
 }
 
-function DetailsCard() {
-  const profile = useStore((s) => s.profile);
-  const setProfile = useStore((s) => s.setProfile);
-  const toast = useStore((s) => s.toast);
+function PrefsCard({ profile }: { profile: Profile }) {
+  const [prefs, setPrefs] = useState(profile.prefs);
+  const [run] = useAction();
+  const flip = (k: keyof Profile["prefs"]) => {
+    const next = { ...prefs, [k]: !prefs[k] };
+    setPrefs(next);
+    run(() => updateProfile({ prefs: next }));
+  };
+  return (
+    <Card className="p-5">
+      <CardHeader title="איך לעדכן אותי" />
+      <div className="mt-2">
+        <Checkbox label="הודעת וואטסאפ" checked={prefs.whatsapp} onChange={() => flip("whatsapp")} />
+        <Checkbox label="SMS" checked={prefs.sms} onChange={() => flip("sms")} />
+        <Checkbox label="אימייל" checked={prefs.email} onChange={() => flip("email")} />
+        <Checkbox label="תזכורת יום לפני האירוע" checked={prefs.reminder} onChange={() => flip("reminder")} />
+      </div>
+    </Card>
+  );
+}
+
+function SavedCard({ saved }: { saved: Operator[] }) {
+  return (
+    <Card className="p-5">
+      <CardHeader title="מפעילים ששמרתי" />
+      {saved.length === 0 ? (
+        <p className="mt-3 flex items-center gap-2 text-sm text-muted">
+          <Heart aria-hidden className="size-4 shrink-0" />
+          לוחצים על הלב בכרטיס מפעיל כדי לשמור אותו כאן.
+        </p>
+      ) : (
+        <ul className="mt-3 flex flex-col gap-1">
+          {saved.map((op) => (
+            <li key={op.id}>
+              <Link href={`/operators/${op.slug}`} className="-mx-2 flex items-center gap-3 rounded-xl p-2 hover:bg-sunken">
+                <OperatorMedia category={op.category} className="size-12 shrink-0 rounded-lg" iconClassName="size-5" />
+                <span>
+                  <span className="block font-bold">{op.name}</span>
+                  <span className="text-[13px] text-muted">
+                    {categoryById[op.category]?.name} · החל מ־{money(priceFrom(op))}
+                  </span>
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+function DetailsCard({ profile }: { profile: Profile }) {
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState(profile);
+  const [draft, setDraft] = useState({ fullName: profile.fullName, phone: profile.phone });
+  const [run, pending] = useAction();
   return (
     <Card className="p-5">
       <CardHeader
@@ -397,7 +403,7 @@ function DetailsCard() {
             variant="link"
             size="sm"
             onClick={() => {
-              setDraft(profile);
+              setDraft({ fullName: profile.fullName, phone: profile.phone });
               setOpen(true);
             }}
           >
@@ -407,43 +413,36 @@ function DetailsCard() {
       />
       <dl className="mt-3 flex flex-col gap-1.5 text-[15px]">
         <dt className="sr-only">שם</dt>
-        <dd>{profile.name}</dd>
+        <dd>{profile.fullName || "—"}</dd>
         <dt className="sr-only">טלפון</dt>
         <dd dir="ltr" className="text-end">
-          {profile.phone}
+          {profile.phone || <span className="text-muted">אין טלפון עדיין</span>}
         </dd>
         <dt className="sr-only">אימייל</dt>
         <dd dir="ltr" className="text-end">
           {profile.email}
         </dd>
       </dl>
-      <p className="mt-3 text-sm text-muted">קבלות וחשבוניות נשלחות לאימייל הזה</p>
+      <p className="mt-3 text-sm text-muted">קבלות וחשבוניות נשלחות לאימייל של החשבון</p>
       <Sheet
         open={open}
         onClose={() => setOpen(false)}
         title="עריכת פרטים"
         footer={
-          <Button
-            className="w-full"
-            onClick={() => {
-              setProfile(draft);
-              setOpen(false);
-              toast("הפרטים נשמרו");
-            }}
-          >
+          <Button className="w-full" disabled={pending || !draft.fullName.trim()} onClick={() => run(() => updateProfile(draft), { success: "הפרטים נשמרו", onDone: () => setOpen(false) })}>
             שמירת שינויים
           </Button>
         }
       >
         <div className="flex flex-col gap-4">
           <Field label="שם מלא" htmlFor="p-name">
-            <Input id="p-name" autoComplete="name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+            <Input id="p-name" autoComplete="name" value={draft.fullName} onChange={(e) => setDraft({ ...draft, fullName: e.target.value })} />
           </Field>
           <Field label="טלפון נייד" htmlFor="p-phone">
             <Input id="p-phone" type="tel" dir="ltr" className="text-end" autoComplete="tel" value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} />
           </Field>
-          <Field label="אימייל" htmlFor="p-email">
-            <Input id="p-email" type="email" dir="ltr" className="text-end" autoComplete="email" value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} />
+          <Field label="אימייל" htmlFor="p-email" hint="האימייל משמש לכניסה ולא ניתן לשינוי כאן">
+            <Input id="p-email" type="email" dir="ltr" className="bg-sunken text-end" readOnly value={profile.email} />
           </Field>
         </div>
       </Sheet>

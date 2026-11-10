@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { BadgeCheck, Check, ChevronLeft, Clock, Heart, Play, Share2, ShieldCheck, Star } from "lucide-react";
 import {
   type Operator,
@@ -12,10 +12,15 @@ import {
   locationTypes,
   money,
   pre,
+  plusDays,
   shortDate,
   takenSlots,
+  todayIso,
 } from "@/lib/data";
-import { useOperator, useStore } from "@/lib/store";
+import { useStore } from "@/lib/store";
+import { supabaseBrowser } from "@/lib/supabase/client";
+import { supabaseConfigured } from "@/lib/supabase/env";
+import { useSaved } from "@/components/save-button";
 import { OperatorMedia } from "@/components/brand";
 import { Sheet } from "@/components/sheet";
 import { Badge, Button, Card, Checkbox, DefinitionRow, Field, Input, Rating, ScoreBar, Select, Textarea, cx } from "@/components/ui";
@@ -28,18 +33,16 @@ const sections = [
   { id: "policy", label: "מדיניות ביטול" },
 ];
 
-export function OperatorView({ slug }: { slug: string }) {
-  const op = useOperator(slug)!;
+export function OperatorView({ op }: { op: Operator }) {
   const params = useSearchParams();
   const router = useRouter();
-  const bookings = useStore((s) => s.bookings);
-  const saved = useStore((s) => s.saved.includes(slug));
-  const toggleSaved = useStore((s) => s.toggleSaved);
+  const { saved, toggle: toggleSaved } = useSaved(op.id);
   const toast = useStore((s) => s.toast);
 
   const activePackages = op.packages.filter((p) => p.active);
   const [pkgId, setPkgId] = useState((activePackages.find((p) => p.popular) ?? activePackages[0]).id);
-  const [date, setDate] = useState(params.get("date") || "2026-12-11");
+  const [date, setDate] = useState(params.get("date") || plusDays(todayIso(), 14));
+  const [busy, setBusy] = useState<{ time: string; durationMin: number }[]>([]);
   const [time, setTime] = useState("");
   const [kids, setKids] = useState(22);
   const [extras, setExtras] = useState<string[]>([]);
@@ -49,7 +52,22 @@ export function OperatorView({ slug }: { slug: string }) {
   const [allReviews, setAllReviews] = useState(false);
 
   const pkg = activePackages.find((p) => p.id === pkgId) ?? activePackages[0];
-  const taken = useMemo(() => takenSlots(op, date, bookings), [op, date, bookings]);
+  const blocked = op.blockedDates.includes(date);
+  const taken = blocked ? new Set(op.slots) : takenSlots(op, busy, pkg.durationMin);
+
+  // Busy windows for the chosen date: times only, never customer details.
+  useEffect(() => {
+    if (!supabaseConfigured) return;
+    let live = true;
+    supabaseBrowser()
+      .rpc("busy_slots", { p_operator: op.id, p_date: date })
+      .then(({ data }: { data: { time: string; duration_min: number }[] | null }) => {
+        if (live) setBusy((data ?? []).map((b) => ({ time: b.time, durationMin: b.duration_min })));
+      });
+    return () => {
+      live = false;
+    };
+  }, [op.id, date]);
   const extraKids = pkg.maxKids && kids > pkg.maxKids ? kids - pkg.maxKids : 0;
   const extraKidsCost = extraKids * (pkg.extraKidPrice ?? 0);
   const extrasCost = extras.reduce((s, id) => s + (op.extras.find((e) => e.id === id)?.price ?? 0), 0);
@@ -86,7 +104,7 @@ export function OperatorView({ slug }: { slug: string }) {
         <span className="text-[28px] font-extrabold tabular">{money(minPrice)}</span>
       </p>
       <Field label="תאריך" htmlFor={`${id}-date`}>
-        <Input id={`${id}-date`} type="date" min="2026-11-08" value={date} onChange={(e) => { setDate(e.target.value); setTime(""); }} />
+        <Input id={`${id}-date`} type="date" min={todayIso()} value={date} onChange={(e) => { setDate(e.target.value); setTime(""); }} />
       </Field>
       <fieldset>
         <legend className="mb-1.5 text-sm font-semibold">שעות פנויות ב־{shortDate(date)}</legend>
@@ -211,7 +229,7 @@ export function OperatorView({ slug }: { slug: string }) {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" size="sm" onClick={() => toggleSaved(op.slug)} aria-pressed={saved}>
+          <Button variant="secondary" size="sm" onClick={toggleSaved} aria-pressed={saved}>
             <Heart aria-hidden className={cx("size-4", saved && "fill-danger text-danger")} />
             {saved ? "נשמר" : "שמירה"}
           </Button>

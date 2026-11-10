@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CalendarCheck, Star, ListChecks, ShieldCheck, ArrowLeft, Check } from "lucide-react";
-import { categories, publicOperators } from "@/lib/data";
+import { categories } from "@/lib/data";
+import { getCatalog } from "@/lib/db";
 import { CategoryIcon } from "@/components/brand";
 import { HeroSearch } from "@/components/hero-search";
 import { OperatorCard } from "@/components/operator-card";
@@ -29,8 +30,12 @@ const values = [
   { icon: ShieldCheck, title: "מפעילים שנבדקו", text: "אנחנו בודקים פרטי עסק, ביטוח ורישיונות לפני שפרופיל עולה לאתר." },
 ];
 
-export default function HomePage() {
-  const featured = publicOperators()
+export const revalidate = 60;
+
+export default async function HomePage() {
+  const { operators, activeCategories } = await getCatalog();
+  const shownCategories = activeCategories.length ? categories.filter((c) => activeCategories.includes(c.id)) : categories;
+  const featured = operators
     .filter((o) => o.regions.includes("מרכז"))
     .sort((a, b) => b.rating - a.rating)
     .slice(0, 4);
@@ -74,7 +79,7 @@ export default function HomePage() {
           </Link>
         </div>
         <ul className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {categories.map((c) => (
+          {shownCategories.map((c) => (
             <li key={c.id}>
               <Link
                 href={`/search?cat=${c.id}`}

@@ -1,25 +1,28 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { operatorBySlug, operators } from "@/lib/data";
+import { getActiveSlugs, getOperatorPage } from "@/lib/db";
 import { OperatorView } from "./operator-view";
 
-export function generateStaticParams() {
-  return operators.map((o) => ({ slug: o.slug }));
+export const revalidate = 60;
+
+export async function generateStaticParams() {
+  return (await getActiveSlugs()).map((slug) => ({ slug }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const op = operatorBySlug(slug);
+  const op = await getOperatorPage(slug);
   return { title: op ? op.name : "מפעיל לא נמצא", description: op?.tagline };
 }
 
 export default async function OperatorPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  if (!operatorBySlug(slug)) notFound();
+  const op = await getOperatorPage(slug);
+  if (!op) notFound();
   return (
     <Suspense>
-      <OperatorView slug={slug} />
+      <OperatorView op={op} />
     </Suspense>
   );
 }

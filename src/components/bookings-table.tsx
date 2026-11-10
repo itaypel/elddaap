@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type Booking, bookingTotal, money, operatorBySlug, packageOf, shortDate, statusMeta } from "@/lib/data";
+import { type Booking, money, shortDate, statusMeta } from "@/lib/data";
 import { Badge, cx } from "./ui";
 
 type Col = "id" | "customer" | "operator" | "when" | "package" | "amount" | "commission" | "payment" | "status" | "action";
@@ -50,17 +50,17 @@ export function BookingsTable({
         <tbody>
           {bookings.map((b) => {
             const meta = statusMeta[b.status];
-            const total = bookingTotal(b);
+            const total = b.total;
             const cell: Record<Col, React.ReactNode> = {
               id: <span className="text-muted tabular">#{b.id}</span>,
               customer: <span className="font-bold">{b.customerName}</span>,
-              operator: operatorBySlug(b.operatorSlug)?.name,
+              operator: b.operator.name,
               when: (
                 <span className="tabular">
                   {b.time} · {shortDate(b.date)}
                 </span>
               ),
-              package: packageOf(b)?.name,
+              package: b.pkg.name,
               amount: <span className="tabular">{money(total)}</span>,
               commission: <span className="text-muted tabular">{money(b.status === "cancelled" || b.status === "declined" ? 0 : Math.round(total * commission))}</span>,
               payment: <span className="text-muted">{paymentLabel(b)}</span>,

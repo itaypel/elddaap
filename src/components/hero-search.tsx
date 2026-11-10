@@ -3,12 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Search } from "lucide-react";
-import { ageRanges, eventTypes, regions } from "@/lib/data";
+import { ageRanges, eventTypes, plusDays, regions, todayIso } from "@/lib/data";
 import { Field, Input, Select, buttonClass } from "./ui";
 
 export function HeroSearch() {
   const router = useRouter();
-  const [q, setQ] = useState({ type: "יום הולדת", date: "2026-12-11", age: "6-8", region: "מרכז", budget: "2000" });
+  const [q, setQ] = useState({ type: "יום הולדת", date: plusDays(todayIso(), 14), age: "6-8", region: "מרכז", budget: "2000" });
   const set = (k: keyof typeof q) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setQ({ ...q, [k]: e.target.value });
 
   return (
@@ -29,7 +29,7 @@ export function HeroSearch() {
         </Select>
       </Field>
       <Field label="תאריך" htmlFor="q-date">
-        <Input id="q-date" type="date" value={q.date} min="2026-11-08" onChange={set("date")} />
+        <Input id="q-date" type="date" value={q.date} min={todayIso()} onChange={set("date")} />
       </Field>
       <Field label="גיל הילדים" htmlFor="q-age">
         <Select id="q-age" value={q.age} onChange={set("age")}>

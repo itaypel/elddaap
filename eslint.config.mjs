@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Node scripts and seed data run outside the app bundle.
+    "scripts/**",
+    "supabase/**",
   ]),
 ]);
 

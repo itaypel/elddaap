@@ -2,15 +2,12 @@
 
 import { useState } from "react";
 import { Search } from "lucide-react";
-import { type BookingStatus, bookingTotal, operatorBySlug, statusMeta } from "@/lib/data";
-import { useStore } from "@/lib/store";
+import { type Booking, type BookingStatus, statusMeta } from "@/lib/data";
 import { downloadCsv } from "@/lib/ops";
 import { BookingsTable } from "./bookings-table";
 import { Button, Card, CardHeader, Input, Select } from "./ui";
 
-export function AdminBookings({ limit }: { limit?: number }) {
-  const bookings = useStore((s) => s.bookings);
-  const commission = useStore((s) => s.admin.commission);
+export function AdminBookings({ bookings, commission, limit }: { bookings: Booking[]; commission: number; limit?: number }) {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<"" | BookingStatus>("");
 
@@ -18,7 +15,7 @@ export function AdminBookings({ limit }: { limit?: number }) {
     .filter((b) => !status || b.status === status)
     .filter((b) => {
       if (!q.trim()) return true;
-      const hay = `${b.id} ${b.customerName} ${operatorBySlug(b.operatorSlug)?.name} ${b.city}`.toLowerCase();
+      const hay = `${b.id} ${b.customerName} ${b.operator.name} ${b.city}`.toLowerCase();
       return hay.includes(q.trim().toLowerCase().replace("#", ""));
     })
     .sort((a, b) => b.id - a.id);
@@ -36,7 +33,7 @@ export function AdminBookings({ limit }: { limit?: number }) {
               onClick={() =>
                 downloadCsv("hafilu-bookings.csv", [
                   ["הזמנה", "לקוח", "מפעיל", "תאריך", "שעה", "סכום", "עמלה", "סטטוס"],
-                  ...filtered.map((b) => [b.id, b.customerName, operatorBySlug(b.operatorSlug)?.name ?? "", b.date, b.time, bookingTotal(b), Math.round(bookingTotal(b) * commission), statusMeta[b.status].label]),
+                  ...filtered.map((b) => [b.id, b.customerName, b.operator.name, b.date, b.time, b.total, Math.round(b.total * commission), statusMeta[b.status].label]),
                 ])
               }
             >

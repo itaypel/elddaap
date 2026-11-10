@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
 import {
   Trophy,
   WandSparkles,
@@ -80,13 +79,6 @@ export function OperatorMedia({
       {children}
     </div>
   );
-}
-
-export function Hydrator() {
-  useEffect(() => {
-    useStore.persist.rehydrate();
-  }, []);
-  return null;
 }
 
 export function Toaster() {

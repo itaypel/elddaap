@@ -11,12 +11,13 @@ import {
   ageRanges,
   availabilityWindow,
   availableOn,
-  categories,
+  categories as allCategories,
   categoryById,
   locationTypes,
   money,
+  plusDays,
   priceFrom,
-  publicOperators,
+  todayIso,
   regions,
   shortDate,
   weekday,
@@ -41,9 +42,9 @@ type Filters = {
 
 const minDuration = (o: Operator) => Math.min(...o.packages.map((p) => p.durationMin));
 
-export function SearchView() {
+export function SearchView({ operators, activeCategories }: { operators: Operator[]; activeCategories: CategoryId[] }) {
   const params = useSearchParams();
-  const date = params.get("date") || "2026-12-11";
+  const date = params.get("date") || plusDays(todayIso(), 14);
   const type = params.get("type") || "יום הולדת";
   const region = params.get("region") || "";
   const budget = params.get("budget") ?? "";
@@ -73,7 +74,7 @@ export function SearchView() {
   const clearCompare = useStore((s) => s.clearCompare);
 
   const results = useMemo(() => {
-    let list = publicOperators().filter((o) => {
+    let list = operators.filter((o) => {
       if (regionSel && !o.regions.includes(regionSel as never)) return false;
       if (f.onlyAvailable && !availableOn(o, date)) return false;
       if (f.ages.length) {
@@ -100,7 +101,7 @@ export function SearchView() {
     else if (sort === "reviews") list = [...list].sort((a, b) => b.reviewsCount - a.reviewsCount);
     else list = [...list].sort((a, b) => Number(!!b.sponsored) - Number(!!a.sponsored) || b.rating * 10 + b.reviewsCount / 20 - (a.rating * 10 + a.reviewsCount / 20));
     return list;
-  }, [f, regionSel, sort, date]);
+  }, [operators, f, regionSel, sort, date]);
 
   const activeFilterCount =
     f.ages.length + f.cats.length + f.locs.length + (f.priceMin ? 1 : 0) + (f.priceMax ? 1 : 0) + (f.duration !== "any" ? 1 : 0) + (f.rating !== "any" ? 1 : 0) + (f.onlyAvailable ? 0 : 1);
@@ -109,7 +110,7 @@ export function SearchView() {
 
   const chips = [type, `${weekday(date)}, ${shortDate(date)}.${date.slice(0, 4)}`, age ? `גילאי ${ageRanges.find((a) => a.id === age)?.label}` : null, regionSel || null, budget ? `עד ${money(Number(budget))}` : null].filter(Boolean);
 
-  const filterPanel = <FilterPanel f={f} setF={setF} onReset={resetFilters} />;
+  const filterPanel = <FilterPanel f={f} setF={setF} onReset={resetFilters} cats={activeCategories} />;
 
   return (
     <>
@@ -220,7 +221,7 @@ export function SearchView() {
           <div className="animate-rise mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3 rounded-2xl bg-contrast px-4 py-3 text-on-contrast shadow-float">
             <p className="text-[15px]">
               <span className="font-bold">{compare.length} מפעילים נבחרו להשוואה:</span>{" "}
-              <span className="opacity-80">{compare.map((s) => publicOperators().find((o) => o.slug === s)?.name).join(", ")}</span>
+              <span className="opacity-80">{compare.map((s) => operators.find((o) => o.slug === s)?.name).filter(Boolean).join(", ")}</span>
             </p>
             <div className="flex items-center gap-2">
               <button type="button" onClick={clearCompare} className="min-h-10 rounded-xl px-3 text-sm font-semibold opacity-80 hover:opacity-100">
@@ -263,7 +264,7 @@ export function SearchView() {
       </Sheet>
 
       <Sheet open={compareOpen} onClose={() => setCompareOpen(false)} title="השוואת מפעילים" wide>
-        <CompareTable slugs={compare} date={date} />
+        <CompareTable operators={operators} slugs={compare} date={date} />
       </Sheet>
     </>
   );
@@ -324,8 +325,9 @@ function ResultRow({ op, date, compared, onCompare }: { op: Operator; date: stri
   );
 }
 
-function FilterPanel({ f, setF, onReset }: { f: Filters; setF: (f: Filters) => void; onReset: () => void }) {
+function FilterPanel({ f, setF, onReset, cats }: { f: Filters; setF: (f: Filters) => void; onReset: () => void; cats: CategoryId[] }) {
   const [moreCats, setMoreCats] = useState(false);
+  const categories = cats.length ? allCategories.filter((c) => cats.includes(c.id)) : allCategories;
   const toggle = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
   return (
     <div className="flex flex-col gap-5">
@@ -475,8 +477,8 @@ function BigMap({ results, region, onRegion }: { results: Operator[]; region: st
   );
 }
 
-function CompareTable({ slugs, date }: { slugs: string[]; date: string }) {
-  const ops = slugs.map((s) => publicOperators().find((o) => o.slug === s)).filter(Boolean) as Operator[];
+function CompareTable({ operators, slugs, date }: { operators: Operator[]; slugs: string[]; date: string }) {
+  const ops = slugs.map((s) => operators.find((o) => o.slug === s)).filter(Boolean) as Operator[];
   const rows: { label: string; render: (o: Operator) => React.ReactNode }[] = [
     { label: "מחיר החל מ", render: (o) => <strong className="tabular">{money(priceFrom(o))}</strong> },
     { label: "דירוג", render: (o) => (
