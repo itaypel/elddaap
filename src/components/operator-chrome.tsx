@@ -26,8 +26,10 @@ const statusLine = (p: OperatorChromeProps) =>
 
 export function OperatorSidebar(p: OperatorChromeProps) {
   const pathname = usePathname();
+  // The settings page already shows both plans side by side.
+  const showUpsell = p.plan === "basic" && !pathname.startsWith("/operator/settings");
   return (
-    <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col gap-5 border-e border-line bg-card p-4 lg:flex">
+    <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col gap-5 overflow-y-auto border-e border-line bg-card p-4 lg:flex">
       <Logo badge="למפעילים" href="/operator" />
       <div className="flex items-center gap-3 rounded-2xl bg-sunken p-3">
         <OperatorMedia category={p.category} className="size-10 shrink-0 rounded-xl" iconClassName="size-5" />
@@ -60,7 +62,7 @@ export function OperatorSidebar(p: OperatorChromeProps) {
           })}
         </ul>
       </nav>
-      {p.plan === "basic" && (
+      {showUpsell && (
         <div className="mt-auto rounded-2xl bg-[#16161a] p-4 text-white dark:border dark:border-line">
           <p className="font-bold">מסלול מתקדם</p>
           <p className="mt-1 text-[13px] leading-relaxed text-white/75">נתונים עסקיים, חשיפה מוגברת וניהול לקוחות</p>
@@ -69,7 +71,7 @@ export function OperatorSidebar(p: OperatorChromeProps) {
           </Link>
         </div>
       )}
-      <Link href="/" className={cx("text-center text-[13px] text-muted hover:text-ink", p.plan !== "basic" && "mt-auto")}>
+      <Link href="/" className={cx("text-center text-[13px] text-muted hover:text-ink", !showUpsell && "mt-auto")}>
         לאתר הלקוחות
       </Link>
     </aside>

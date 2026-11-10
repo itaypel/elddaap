@@ -18,7 +18,7 @@ import {
   todayIso,
   weekday,
 } from "@/lib/data";
-import { approveBooking, declineBooking, proposeBooking } from "@/app/actions";
+import { approveBooking, completeBooking, declineBooking, proposeBooking } from "@/app/actions";
 import { useStore } from "@/lib/store";
 import { hoursLeft } from "@/lib/ops";
 import { useAction } from "@/components/use-action";
@@ -27,14 +27,18 @@ import { Badge, Button, Card, Field, Input, PageTitle, Radio, Select, StatusTrac
 
 type Tab = "new" | "payment" | "approved" | "closed";
 
-const inTab = (b: Booking, t: Tab) =>
-  t === "new" ? b.status === "pending" : t === "payment" ? b.status === "awaiting_payment" : t === "approved" ? b.status === "confirmed" || b.status === "completed" : b.status === "cancelled" || b.status === "declined";
+const tabOf = (b: Booking): Tab =>
+  b.status === "pending" ? "new" : b.status === "awaiting_payment" ? "payment" : b.status === "confirmed" || b.status === "completed" ? "approved" : "closed";
+const inTab = (b: Booking, t: Tab) => tabOf(b) === t;
+const timeLeft = (h: number) => (h > 0 ? `נותרו ${h} שעות לתשובה` : "עבר הזמן לתשובה");
 
 export function RequestsView({ op, bookings: all, settings }: { op: Operator; bookings: Booking[]; settings: Settings }) {
   const params = useSearchParams();
-  const [tab, setTab] = useState<Tab>("new");
+  const linked = all.find((b) => b.id === Number(params.get("id")));
+  // A link to a specific booking opens the tab that booking lives in.
+  const [tab, setTab] = useState<Tab>(linked ? tabOf(linked) : "new");
   const list = all.filter((b) => inTab(b, tab)).sort((a, b) => (tab === "new" ? hoursLeft(a, settings.replyHours) - hoursLeft(b, settings.replyHours) : a.date.localeCompare(b.date)));
-  const [selectedId, setSelectedId] = useState<number | null>(Number(params.get("id")) || null);
+  const [selectedId, setSelectedId] = useState<number | null>(linked?.id ?? null);
   const selected = list.find((b) => b.id === selectedId) ?? list[0];
   const detailRef = useRef<HTMLDivElement>(null);
 
@@ -83,7 +87,7 @@ export function RequestsView({ op, bookings: all, settings }: { op: Operator; bo
                   >
                     <span className="flex items-start justify-between gap-2">
                       <span className="text-[17px] font-bold">{b.customerName}</span>
-                      {b.status === "pending" && <span className={cx("shrink-0 text-[13px] font-bold", h <= 8 ? "text-danger" : "text-warning")}>נותרו {h} שעות</span>}
+                      {b.status === "pending" && <span className={cx("shrink-0 text-[13px] font-bold", h <= 8 ? "text-danger" : "text-warning")}>{timeLeft(h)}</span>}
                     </span>
                     <span className="mt-1 block text-[15px]">
                       {b.eventType} · {weekday(b.date)} {shortDate(b.date)}, {b.time}–{addMinutes(b.time, b.pkg.durationMin)}
@@ -133,10 +137,18 @@ function RequestDetail({ b, all, op, settings }: { b: Booking; all: Booking[]; o
             {b.eventType} · הזמנה #{b.id}
           </p>
         </div>
-        <Badge tone={b.status === "pending" ? "warning" : meta.tone} className="text-sm">
-          {meta.label}
-          {b.status === "pending" && ` · נותרו ${h} שעות`}
-        </Badge>
+        {/* The status track below already shows where the booking is; the badge adds only the deadline, or the outcome when there is no track. */}
+        {b.status === "pending" ? (
+          <Badge tone={h <= 8 ? "danger" : "warning"} className="text-sm">
+            {timeLeft(h)}
+          </Badge>
+        ) : (
+          (b.status === "cancelled" || b.status === "declined") && (
+            <Badge tone={meta.tone} className="text-sm">
+              {meta.label}
+            </Badge>
+          )
+        )}
       </div>
 
       {b.status !== "cancelled" && b.status !== "declined" && <StatusTrack className="mt-5" step={meta.step} />}
@@ -207,12 +219,17 @@ function RequestDetail({ b, all, op, settings }: { b: Booking; all: Booking[]; o
               הודעה ללקוח
             </Button>
           </div>
-          <p className="mt-3 text-[13px] text-muted">אחרי האישור הלקוח מקבל הודעה ויש לו 48 שעות לשלם מקדמה. עד התשלום השעה שמורה לו ביומן שלכם.</p>
+          <p className="mt-3 text-[13px] text-muted">אחרי האישור הלקוח מקבל הודעה ויש לו {settings.payHours} שעות לשלם מקדמה. עד התשלום השעה שמורה לו ביומן שלכם.</p>
         </>
       )}
 
       {b.status !== "pending" && (
         <div className="mt-6 flex flex-wrap gap-2 border-t border-line pt-5">
+          {b.status === "confirmed" && b.date <= todayIso() && (
+            <Button disabled={pending} onClick={() => run(() => completeBooking(b.id), { success: `#${b.id} סומנה כהושלמה. הלקוח יתבקש לדרג.` })}>
+              סימון כהושלמה
+            </Button>
+          )}
           <Button variant="secondary" onClick={() => setMsgOpen(true)}>
             הודעה ללקוח
           </Button>

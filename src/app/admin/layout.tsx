@@ -13,7 +13,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="min-h-dvh lg:flex">
-      <AdminNav badges={{ approvals, complaints: 2 }} />
+      <AdminNav approvals={approvals} />
       <main id="main" className="mx-auto w-full max-w-6xl min-w-0 flex-1 px-4 pt-6 pb-16 sm:px-6 lg:px-8 lg:pt-10">
         {children}
       </main>

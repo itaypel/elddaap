@@ -6,7 +6,7 @@ import type { Operator } from "@/lib/data";
 import { replyReview } from "@/app/actions";
 import { useAction } from "@/components/use-action";
 import { ReplySheet } from "@/components/reply-sheet";
-import { Badge, Button, Card, PageTitle, ScoreBar } from "@/components/ui";
+import { Button, Card, PageTitle, ScoreBar } from "@/components/ui";
 
 export function ReviewsView({ op }: { op: Operator }) {
   const [run] = useAction();
@@ -42,7 +42,6 @@ export function ReviewsView({ op }: { op: Operator }) {
                     <span className="text-[13px] text-muted">
                       {r.context} · {r.when}
                     </span>
-                    {r.verified && <Badge tone="success">הזמנה מאומתת</Badge>}
                   </p>
                   <span className="flex items-center gap-1 text-sm font-bold tabular">
                     <Star aria-hidden className="size-4 fill-star text-star" />

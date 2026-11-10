@@ -8,7 +8,7 @@ import { type CancellationPolicy, type Operator, type Package, cancellationPolic
 import { useStore } from "@/lib/store";
 import { saveOperatorProfile } from "@/app/actions";
 import { OperatorMedia } from "@/components/brand";
-import { Badge, Button, Card, CardHeader, Field, Input, Select, Textarea, buttonClass, cx } from "@/components/ui";
+import { Badge, Button, Card, CardHeader, Field, Input, PageTitle, Select, Textarea, buttonClass, cx } from "@/components/ui";
 
 export function ProfileView({ op }: { op: Operator }) {
   const toast = useStore((s) => s.toast);
@@ -52,23 +52,27 @@ export function ProfileView({ op }: { op: Operator }) {
     setEditing(id);
   };
   const editPkg = packages.find((p) => p.id === editing);
-  const completion = Math.min(100, 40 + (about.trim().length > 40 ? 20 : 0) + (packages.some((p) => p.active) ? 20 : 0) + (op.facts.length ? 10 : 0) + (op.prepare.length ? 10 : 0));
+  const missing = [
+    about.trim().length <= 40 && { label: "תיאור של יותר מ־40 תווים", weight: 20 },
+    !packages.some((p) => p.active) && { label: "לפחות חבילה פעילה אחת", weight: 20 },
+    !op.facts.length && { label: "עובדות על ההפעלה", weight: 10 },
+    !op.prepare.length && { label: "מה להכין לפני האירוע", weight: 10 },
+  ].filter(Boolean) as { label: string; weight: number }[];
+  const completion = 100 - missing.reduce((s, m) => s + m.weight, 0);
   const photos = 4;
 
   return (
     <>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-[28px] font-extrabold tracking-tight sm:text-[34px]">פרופיל וחבילות</h1>
-        <div className="flex gap-2">
+      <PageTitle
+        title="פרופיל וחבילות"
+        action={
           <Link href={`/operators/${op.slug}`} target="_blank" className={buttonClass("secondary", "md")}>
             תצוגה כמו שלקוח רואה
           </Link>
-          <Button onClick={save} disabled={!dirty || saving}>
-            שמירת שינויים
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
+      {missing.length > 0 && (
       <Card className="mt-5 flex flex-wrap items-center gap-4 p-5">
         <div className="min-w-48 flex-1">
           <p className="font-bold">הפרופיל מלא ב־{completion}%</p>
@@ -77,12 +81,16 @@ export function ProfileView({ op }: { op: Operator }) {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Badge tone="warning">הוסיפו סרטון קצר</Badge>
-          <Badge tone="warning">הוסיפו שאלות נפוצות</Badge>
+          {missing.map((m) => (
+            <Badge key={m.label} tone="warning">
+              חסר: {m.label}
+            </Badge>
+          ))}
         </div>
       </Card>
+      )}
 
-      <Card className="mt-4 p-5">
+      <Card className={cx(missing.length > 0 ? "mt-4" : "mt-5", "p-5")}>
         <CardHeader title="פרטים כלליים" />
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <Field label="שם העסק" htmlFor="pf-name">
@@ -222,7 +230,7 @@ export function ProfileView({ op }: { op: Operator }) {
       </Card>
 
       <Card className="mt-4 p-5">
-        <CardHeader title="אזורי שירות וגילאים" />
+        <CardHeader title="אזורי שירות" sub="הגילאים מוגדרים לכל חבילה בנפרד" />
         <fieldset className="mt-4">
           <legend className="mb-2 text-sm font-semibold">לאן מגיעים בלי תוספת</legend>
           <div className="flex flex-wrap gap-2">
@@ -245,13 +253,6 @@ export function ProfileView({ op }: { op: Operator }) {
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <Field label="דמי נסיעה מחוץ לאזורים" htmlFor="pf-fee" hint="מוצג ללקוח לפני שליחת הבקשה">
             <Input id="pf-fee" defaultValue="10 ₪ לכל 10 ק״מ" />
-          </Field>
-          <Field label="זמן נסיעה מינימלי בין אירועים" htmlFor="pf-gap">
-            <Select id="pf-gap" defaultValue="60">
-              <option value="30">חצי שעה</option>
-              <option value="60">שעה</option>
-              <option value="90">שעה וחצי</option>
-            </Select>
           </Field>
         </div>
       </Card>

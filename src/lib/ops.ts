@@ -54,6 +54,14 @@ export const nextPayout = (rows: IncomeRow[], payoutDay: number) => {
   return { amount: pending.reduce((s, r) => s + r.net, 0), date: `${payoutDay}.${(m % 12) + 1}`, year: m === 12 ? y + 1 : y };
 };
 
+/** Insurance "MM/YYYY" that ends within 30 days or already ended ("—" means none on file). */
+export const insuranceSoon = (until: string) => {
+  const m = /^(\d{2})\/(\d{4})$/.exec(until);
+  if (!m) return until === "—";
+  const end = new Date(Number(m[2]), Number(m[1]), 0);
+  return end.getTime() - Date.now() < 30 * 864e5;
+};
+
 export const greeting = () => {
   const h = new Date().getHours();
   if (h < 5) return "לילה טוב";

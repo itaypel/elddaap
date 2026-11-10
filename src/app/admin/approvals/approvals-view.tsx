@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { categoryById } from "@/lib/data";
 import type { AdminOperator } from "@/lib/db";
@@ -9,7 +7,7 @@ import { setOperatorStatus } from "@/app/actions";
 import { useAction } from "@/components/use-action";
 import { useStore } from "@/lib/store";
 import { OperatorMedia } from "@/components/brand";
-import { Badge, Button, Card, CardHeader, Field, Tabs, Textarea, buttonClass, cx } from "@/components/ui";
+import { Badge, Button, Card, CardHeader, Field, PageTitle, SampleBadge, Tabs, Textarea, cx } from "@/components/ui";
 
 type Tab = "profiles" | "content" | "flagged" | "complaints";
 
@@ -25,24 +23,12 @@ const sampleFlagged = [
   { id: "f2", on: "מדע בקופסה", score: 1, text: "לא רלוונטי, התקשרו אליי ממספר של מתחרה והציעו מחיר זול יותר.", report: "הביקורת לא עוסקת בהפעלה" },
 ];
 
-function SampleBadge() {
-  return <Badge className="ms-2 align-middle">נתוני דוגמה</Badge>;
-}
-
 const docState = (s: string) => s as "ok" | "missing" | "expired" | "optional";
 
 export function ApprovalsView({ operators }: { operators: AdminOperator[] }) {
-  const params = useSearchParams();
   const toast = useStore((s) => s.toast);
   const [run, pending] = useAction();
-  const [tab, setTab] = useState<Tab>((params.get("tab") as Tab) || "profiles");
-  // Follow the sidebar's ?tab= links while already on this page.
-  const urlTab = params.get("tab") as Tab | null;
-  const [seenUrlTab, setSeenUrlTab] = useState(urlTab);
-  if (urlTab !== seenUrlTab) {
-    setSeenUrlTab(urlTab);
-    if (urlTab) setTab(urlTab);
-  }
+  const [tab, setTab] = useState<Tab>("profiles");
 
   const queue = operators.filter((o) => o.status === "pending");
   const [selId, setSelId] = useState<string | null>(queue[0]?.id ?? null);
@@ -65,7 +51,7 @@ export function ApprovalsView({ operators }: { operators: AdminOperator[] }) {
 
   return (
     <>
-      <h1 className="text-[28px] font-extrabold tracking-tight sm:text-[34px]">אישורים ובקרת תוכן</h1>
+      <PageTitle title="אישורים ובקרה" />
       <Tabs
         className="mt-5"
         label="סוג בקרה"
@@ -86,8 +72,8 @@ export function ApprovalsView({ operators }: { operators: AdminOperator[] }) {
             <p className="mt-1 text-[15px] text-muted">מפעיל חדש שמסיים את טופס ההצטרפות יופיע כאן.</p>
           </Card>
         ) : (
-          <div className="mt-5 grid gap-4 lg:grid-cols-[300px_1fr] lg:items-start">
-            <ul className="flex flex-col gap-2">
+          <div className={cx("mt-5 grid gap-4 lg:items-start", queue.length > 1 && "lg:grid-cols-[300px_1fr]")}>
+            <ul className={cx("flex flex-col gap-2", queue.length < 2 && "hidden")}>
               {queue.map((o) => (
                 <li key={o.id}>
                   <button
@@ -191,15 +177,16 @@ export function ApprovalsView({ operators }: { operators: AdminOperator[] }) {
         </Card>
       )}
 
-      {(tab === "complaints" || tab === "profiles") && (
+      {tab === "complaints" && (
         <Card className="mt-5 p-5">
           <CardHeader
             title={
               <>
-                תלונות
+                תלונות פתוחות
                 <SampleBadge />
               </>
             }
+            sub="פניות של לקוחות ומפעילים על הזמנה מסוימת"
           />
           <div className="-mx-5 mt-3 overflow-x-auto px-5">
             <table className="w-full min-w-[680px] border-collapse text-[15px]">
@@ -249,15 +236,13 @@ export function ApprovalsView({ operators }: { operators: AdminOperator[] }) {
         </Card>
       )}
 
-      {(tab === "flagged" || tab === "profiles") && (
-        <section aria-labelledby="flagged-title" className="mt-6">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 id="flagged-title" className="text-xl font-extrabold">
-              ביקורות שדווחו
-              <SampleBadge />
-            </h2>
-            <p className="text-sm text-muted">ביקורת שלילית לא מוסתרת רק בגלל שהיא שלילית, אלא רק אם היא מפרה את המדיניות</p>
-          </div>
+      {tab === "flagged" && (
+        <section aria-labelledby="flagged-title" className="mt-5">
+          <h2 id="flagged-title" className="text-lg font-bold">
+            ביקורות שמפעילים דיווחו עליהן
+            <SampleBadge />
+          </h2>
+          <p className="mt-1 text-sm text-muted">ביקורת שלילית לא מוסתרת רק בגלל שהיא שלילית, אלא רק אם היא מפרה את המדיניות.</p>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             {sampleFlagged.map((f) => {
               const st = flagged[f.id];
@@ -286,11 +271,6 @@ export function ApprovalsView({ operators }: { operators: AdminOperator[] }) {
           </div>
         </section>
       )}
-      <p className="mt-8">
-        <Link href="/admin/catalog" className={buttonClass("link", "sm")}>
-          לכל המפעילים
-        </Link>
-      </p>
     </>
   );
 }

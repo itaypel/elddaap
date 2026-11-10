@@ -4,22 +4,14 @@ import Link from "next/link";
 import { useState } from "react";
 import { type Booking, type Settings, money, todayIso } from "@/lib/data";
 import type { AdminOperator } from "@/lib/db";
-import { downloadCsv, hoursLeft, incomeByMonth, monthLabel } from "@/lib/ops";
-import { AdminBookings } from "@/components/admin-bookings";
-import { Button, Card, CardHeader, Select, Stat, buttonClass, cx } from "@/components/ui";
+import { hoursLeft, insuranceSoon, monthLabel } from "@/lib/ops";
+import { BookingsTable } from "@/components/bookings-table";
+import { Card, CardHeader, PageTitle, Select, Stat, buttonClass, cx } from "@/components/ui";
 
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 const prevMonth = (ym: string) => {
   const [y, m] = ym.split("-").map(Number);
   return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
-};
-
-/** Insurance "MM/YYYY" that ends within 30 days or already ended. */
-const insuranceSoon = (until: string) => {
-  const m = /^(\d{2})\/(\d{4})$/.exec(until);
-  if (!m) return until === "—";
-  const end = new Date(Number(m[2]), Number(m[1]), 0);
-  return end.getTime() - Date.now() < 30 * 864e5;
 };
 
 export function OverviewView({ bookings, operators, settings, leadsCount }: { bookings: Booking[]; operators: AdminOperator[]; settings: Settings; leadsCount: number }) {
@@ -47,35 +39,37 @@ export function OverviewView({ bookings, operators, settings, leadsCount }: { bo
   const prev = stats(prevMonth(period));
   const growth = prev.completed ? Math.round(((s.completed - prev.completed) / prev.completed) * 100) : null;
   const active = operators.filter((o) => o.status === "active");
-  const newOps = operators.filter((o) => o.createdAt.startsWith(period)).length;
+  const newOps = active.filter((o) => o.createdAt.startsWith(period)).length;
 
   const pendingOps = operators.filter((o) => o.status === "pending");
   const overdue = bookings.filter((b) => b.status === "pending" && hoursLeft(b, settings.replyHours) === 0);
   const insurance = active.filter((o) => insuranceSoon(o.insuranceUntil));
   const attention = [
-    pendingOps.length > 0 && { dot: "bg-accent", text: `${pendingOps.length} פרופילים של מפעילים חדשים מחכים לאישור`, href: "/admin/approvals", cta: "לאישורים" },
-    overdue.length > 0 && { dot: "bg-danger", text: `${overdue.length === 1 ? `בקשה #${overdue[0].id}` : `${overdue.length} בקשות`} לא נענו ${settings.replyHours} שעות`, href: "/admin/bookings", cta: "להזמנות" },
-    insurance.length > 0 && { dot: "bg-[#e8a20c]", text: `${insurance.length === 1 ? `ל${insurance[0].name}` : `ל־${insurance.length} מפעילים`} פג תוקף הביטוח או שיפוג בעוד פחות מ־30 יום`, href: "/admin/catalog", cta: "לפרופילים" },
-    leadsCount > 0 && { dot: "bg-[#e8a20c]", text: `${leadsCount} פניות ממוסדות מחכות להצעות מחיר`, href: "/admin/catalog#leads", cta: "לפניות" },
+    pendingOps.length > 0 && { dot: "bg-accent", text: pendingOps.length === 1 ? "פרופיל אחד של מפעיל חדש מחכה לאישור" : `${pendingOps.length} פרופילים של מפעילים חדשים מחכים לאישור`, href: "/admin/approvals", cta: "לאישורים" },
+    overdue.length > 0 && { dot: "bg-danger", text: `${overdue.length === 1 ? `בקשה #${overdue[0].id} לא נענתה` : `${overdue.length} בקשות לא נענו`} ${settings.replyHours} שעות`, href: "/admin/bookings", cta: "להזמנות" },
+    insurance.length > 0 && { dot: "bg-[#e8a20c]", text: `${insurance.length === 1 ? `ל${insurance[0].name}` : `ל־${insurance.length} מפעילים`} פג תוקף הביטוח או שיפוג בעוד פחות מ־30 יום`, href: "/admin/people", cta: "למפעילים" },
+    leadsCount > 0 && { dot: "bg-[#e8a20c]", text: `${leadsCount} פניות ממוסדות מחכות להצעות מחיר`, href: "/admin/people?view=leads", cta: "לפניות" },
   ].filter(Boolean) as { dot: string; text: string; href: string; cta: string }[];
 
-  const income = incomeByMonth(bookings, settings.commission, settings.payoutDay);
+  const recent = [...bookings].sort((a, b) => b.id - a.id).slice(0, 5);
 
   return (
     <>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-[28px] font-extrabold tracking-tight sm:text-[34px]">סקירה</h1>
-        <label className="flex items-center gap-2 text-sm text-muted">
-          תקופה
-          <Select value={period} onChange={(e) => setPeriod(e.target.value)} className="min-w-40">
-            {months.map((m) => (
-              <option key={m} value={m}>
-                {monthLabel(m)}
-              </option>
-            ))}
-          </Select>
-        </label>
-      </div>
+      <PageTitle
+        title="סקירה"
+        action={
+          <label className="flex items-center gap-2 text-sm text-muted">
+            תקופה
+            <Select value={period} onChange={(e) => setPeriod(e.target.value)} className="min-w-40">
+              {months.map((m) => (
+                <option key={m} value={m}>
+                  {monthLabel(m)}
+                </option>
+              ))}
+            </Select>
+          </label>
+        }
+      />
 
       <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3">
         <Stat label="הזמנות שהושלמו" value={s.completed} sub={growth === null ? "אין נתונים לחודש הקודם" : `${growth >= 0 ? "+" : ""}${growth}% מהחודש הקודם`} subTone={growth !== null && growth >= 0 ? "success" : "muted"} />
@@ -107,38 +101,19 @@ export function OverviewView({ bookings, operators, settings, leadsCount }: { bo
         )}
       </Card>
 
-      <div className="mt-4">
-        <AdminBookings bookings={bookings} commission={settings.commission} limit={7} />
-      </div>
-
-      <section id="reports" aria-labelledby="reports-title" className="mt-8 scroll-mt-6">
-        <h2 id="reports-title" className="text-xl font-extrabold">
-          דוחות
-        </h2>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {[
-            { t: "עמלות לפי חודש", d: "כמה נגבה, מה הועבר ומה עדיין פתוח", rows: [["חודש", "הזמנות", "ברוטו", "עמלה", "העברה"], ...income.map((m) => [m.label, m.completed, m.gross, m.commission, m.transfer === "done" ? "הועבר" : "מתוכנן"])] },
-            {
-              t: "ביצועי מפעילים",
-              d: "דירוג, הזמנות וסטטוס לכל מפעיל",
-              rows: [["מפעיל", "סטטוס", "דירוג", "ביקורות", "הזמנות"], ...operators.map((o) => [o.name, o.status, o.rating, o.reviewsCount, bookings.filter((b) => b.operatorId === o.id).length])],
-            },
-            {
-              t: "ייצוא לרואה חשבון",
-              d: "כל ההזמנות, הסכומים והתשלומים בקובץ אחד",
-              rows: [["הזמנה", "תאריך", "מפעיל", "לקוח", "סכום", "שולם", "סטטוס"], ...bookings.map((b) => [b.id, b.date, b.operator.name, b.customerName, b.total, b.paid, b.status])],
-            },
-          ].map((r, i) => (
-            <Card key={r.t} className="flex flex-col p-5">
-              <h3 className="font-bold">{r.t}</h3>
-              <p className="mt-1 flex-1 text-sm leading-relaxed text-muted">{r.d}</p>
-              <Button variant="secondary" size="sm" className="mt-4 self-start" onClick={() => downloadCsv(`hafilu-report-${i + 1}.csv`, r.rows as (string | number)[][])}>
-                ייצוא CSV
-              </Button>
-            </Card>
-          ))}
+      <Card className="mt-4 p-5">
+        <CardHeader
+          title="הזמנות אחרונות"
+          action={
+            <Link href="/admin/bookings" className="flex min-h-11 items-center text-sm font-semibold text-accent-ink hover:underline">
+              לכל ההזמנות
+            </Link>
+          }
+        />
+        <div className="mt-2">
+          <BookingsTable caption="הזמנות אחרונות" bookings={recent} commission={settings.commission} cols={["id", "customer", "operator", "when", "amount", "status"]} />
         </div>
-      </section>
+      </Card>
     </>
   );
 }

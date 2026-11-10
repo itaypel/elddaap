@@ -2,39 +2,42 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
 import { Logo } from "./brand";
 import { cx } from "./ui";
 
+/** One entry per page. No anchors or query links, so every item can show where you are. */
 const items = [
   { href: "/admin", label: "סקירה" },
   { href: "/admin/bookings", label: "הזמנות ותשלומים" },
-  { href: "/admin/approvals", label: "אישורים", badge: "approvals" as const },
-  { href: "/admin/approvals?tab=complaints", label: "תלונות וביקורות", badge: "complaints" as const },
-  { href: "/admin/catalog", label: "לקוחות ומפעילים" },
-  { href: "/admin/catalog#categories", label: "קטגוריות" },
-  { href: "/admin/catalog#promos", label: "מבצעים וקידום" },
-  { href: "/admin#reports", label: "דוחות" },
-  { href: "/admin/catalog#rules", label: "עמלות והגדרות" },
+  { href: "/admin/approvals", label: "אישורים ובקרה", badge: true },
+  { href: "/admin/people", label: "לקוחות ומפעילים" },
+  { href: "/admin/promos", label: "מבצעים וקידום" },
+  { href: "/admin/settings", label: "עמלות והגדרות" },
   { href: "/admin/account", label: "החשבון שלי" },
 ];
 
-export function AdminNav({ badges }: { badges: { approvals: number; complaints: number } }) {
+const isActive = (pathname: string, href: string) => (href === "/admin" ? pathname === "/admin" : pathname.startsWith(href));
+
+export function AdminNav({ approvals }: { approvals: number }) {
   const pathname = usePathname();
-  const isActive = (href: string) => {
-    const path = href.split(/[?#]/)[0];
-    if (href.includes("#") || href.includes("?")) return false;
-    return path === "/admin" ? pathname === "/admin" : pathname.startsWith(path);
-  };
+  const railActive = useRef<HTMLAnchorElement>(null);
+
+  // Keep the current section visible in the compact, horizontally scrolling rail.
+  useEffect(() => {
+    railActive.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [pathname]);
+
   return (
     <>
       {/* Regular width: dark sidebar */}
-      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col gap-6 bg-[#121216] p-4 text-white lg:flex">
+      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col gap-6 overflow-y-auto bg-[#121216] p-4 text-white lg:flex">
         <Logo badge="ניהול" href="/admin" inverted />
         <nav aria-label="ניהול">
           <ul className="flex flex-col gap-0.5">
             {items.map((it) => {
-              const active = isActive(it.href);
-              const count = it.badge ? badges[it.badge] : 0;
+              const active = isActive(pathname, it.href);
+              const count = it.badge ? approvals : 0;
               return (
                 <li key={it.href}>
                   <Link
@@ -44,7 +47,9 @@ export function AdminNav({ badges }: { badges: { approvals: number; complaints: 
                   >
                     {it.label}
                     {count > 0 && (
-                      <span className={cx("grid min-w-6 place-items-center rounded-full px-1.5 text-xs leading-6 font-bold", it.badge === "complaints" ? "bg-[#f4b740] text-[#16161a]" : "bg-accent text-white")}>{count}</span>
+                      <span className="grid min-w-6 place-items-center rounded-full bg-accent px-1.5 text-xs leading-6 font-bold text-white" aria-label={`${count} ממתינים לאישור`}>
+                        {count}
+                      </span>
                     )}
                   </Link>
                 </li>
@@ -57,21 +62,33 @@ export function AdminNav({ badges }: { badges: { approvals: number; complaints: 
         </Link>
       </aside>
 
-      {/* Compact width: dark top bar with a scrollable section rail */}
+      {/* Compact width: dark top bar with the same sections in a scrollable rail */}
       <header className="sticky top-0 z-40 bg-[#121216] text-white lg:hidden">
-        <div className="flex h-14 items-center px-4">
+        <div className="flex h-14 items-center justify-between px-4">
           <Logo badge="ניהול" href="/admin" inverted />
+          <Link href="/" className="flex min-h-11 items-center text-[13px] text-white/60 hover:text-white">
+            לאתר הלקוחות
+          </Link>
         </div>
         <nav aria-label="ניהול" className="no-scrollbar overflow-x-auto px-2 pb-2">
           <ul className="flex gap-1">
-            {items.slice(0, 5).map((it) => {
-              const active = isActive(it.href);
-              const count = it.badge ? badges[it.badge] : 0;
+            {items.map((it) => {
+              const active = isActive(pathname, it.href);
+              const count = it.badge ? approvals : 0;
               return (
                 <li key={it.href} className="shrink-0">
-                  <Link href={it.href} aria-current={active ? "page" : undefined} className={cx("flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm", active ? "bg-white/12 font-bold" : "text-white/75")}>
+                  <Link
+                    ref={active ? railActive : undefined}
+                    href={it.href}
+                    aria-current={active ? "page" : undefined}
+                    className={cx("flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm", active ? "bg-white/12 font-bold" : "text-white/75")}
+                  >
                     {it.label}
-                    {count > 0 && <span className="rounded-full bg-accent px-1.5 text-[11px] leading-5 font-bold">{count}</span>}
+                    {count > 0 && (
+                      <span className="rounded-full bg-accent px-1.5 text-[11px] leading-5 font-bold" aria-label={`${count} ממתינים לאישור`}>
+                        {count}
+                      </span>
+                    )}
                   </Link>
                 </li>
               );

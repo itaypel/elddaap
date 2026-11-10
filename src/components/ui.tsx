@@ -212,7 +212,7 @@ export function Segmented<T extends string>({
           aria-checked={value === o.value}
           onClick={() => onChange(o.value)}
           className={cx(
-            "min-h-10 rounded-[10px] px-4 text-sm font-semibold transition-colors",
+            "min-h-10 rounded-[10px] px-3 text-sm font-semibold whitespace-nowrap transition-colors sm:px-4",
             value === o.value ? "bg-contrast text-on-contrast" : "text-muted hover:text-ink",
           )}
         >
@@ -340,14 +340,33 @@ export function StatusTrack({ step, cancelled, className, compact }: { step: num
 
 /* --------------------------------------------------------------- Misc */
 
-export function Stat({ label, value, sub, highlight, subTone }: { label: string; value: ReactNode; sub?: ReactNode; highlight?: boolean; subTone?: "success" | "muted" }) {
-  return (
-    <div className={cx("rounded-2xl border p-5", highlight ? "border-transparent bg-accent text-white" : "border-line bg-card")}>
+/** A single figure. With `href` the whole tile is the link to where that figure is managed. */
+export function Stat({ label, value, sub, highlight, subTone, href }: { label: string; value: ReactNode; sub?: ReactNode; highlight?: boolean; subTone?: "success" | "muted"; href?: string }) {
+  const className = cx(
+    "block rounded-2xl border p-5",
+    highlight ? "border-transparent bg-accent text-white" : "border-line bg-card",
+    href && "transition-colors focus-visible:outline-offset-4",
+    href && (highlight ? "hover:bg-accent-hover" : "hover:border-line-strong"),
+  );
+  const body = (
+    <>
       <p className={cx("text-sm", highlight ? "text-white/85" : "text-muted")}>{label}</p>
       <p className="mt-2 text-3xl font-extrabold tracking-tight tabular">{value}</p>
       {sub && <p className={cx("mt-2 text-[13px]", highlight ? "text-white/85" : subTone === "success" ? "font-semibold text-success" : "text-muted")}>{sub}</p>}
-    </div>
+    </>
   );
+  return href ? (
+    <Link href={href} className={className}>
+      {body}
+    </Link>
+  ) : (
+    <div className={className}>{body}</div>
+  );
+}
+
+/** Marks a section that still runs on illustrative rows rather than real tables. */
+export function SampleBadge() {
+  return <Badge className="ms-2 align-middle">נתוני דוגמה</Badge>;
 }
 
 export function PageTitle({ title, sub, action, className }: { title: ReactNode; sub?: ReactNode; action?: ReactNode; className?: string }) {

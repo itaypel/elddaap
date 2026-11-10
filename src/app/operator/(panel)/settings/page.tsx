@@ -1,15 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { Check } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { Badge, Button, Card, CardHeader, Checkbox, Field, Input, PageTitle, cx } from "@/components/ui";
-
-const days = [
-  ["א׳–ה׳", "15:00", "20:00"],
-  ["שישי", "09:00", "16:00"],
-  ["שבת", "10:00", "18:00"],
-];
 
 export default function SettingsPage() {
   const toast = useStore((s) => s.toast);
@@ -18,7 +13,18 @@ export default function SettingsPage() {
 
   return (
     <>
-      <PageTitle title="הגדרות" />
+      <PageTitle
+        title="הגדרות"
+        sub={
+          <>
+            שעות פעילות וזמני נסיעה מוגדרים{" "}
+            <Link href="/operator/calendar" className="font-semibold text-accent-ink hover:underline">
+              ביומן הזמינות
+            </Link>
+            .
+          </>
+        }
+      />
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <Card className="p-5">
           <CardHeader title="התראות על בקשות" sub="בקשה חדשה מחכה לתשובה 24 שעות. כדאי לקבל אותה מהר." />
@@ -30,25 +36,6 @@ export default function SettingsPage() {
           </div>
         </Card>
 
-        <Card className="p-5">
-          <CardHeader title="שעות פעילות קבועות" />
-          <div className="mt-3 flex flex-col gap-3">
-            {days.map(([d, from, to]) => (
-              <div key={d} className="grid grid-cols-[72px_1fr_1fr] items-end gap-2">
-                <span className="pb-3 font-semibold">{d}</span>
-                <Field label="מ־" htmlFor={`h-${d}-from`}>
-                  <Input id={`h-${d}-from`} type="time" defaultValue={from} />
-                </Field>
-                <Field label="עד" htmlFor={`h-${d}-to`}>
-                  <Input id={`h-${d}-to`} type="time" defaultValue={to} />
-                </Field>
-              </div>
-            ))}
-          </div>
-          <Button className="mt-4" variant="secondary" onClick={() => toast("שעות הפעילות עודכנו")}>
-            שמירת שעות
-          </Button>
-        </Card>
 
         <Card className="p-5">
           <CardHeader title="פרטי העסק" />
@@ -69,7 +56,7 @@ export default function SettingsPage() {
           <p className="mt-3 text-[13px] text-muted">שינוי בפרטי העסק עובר אימות מחדש. פנו אלינו כדי לעדכן.</p>
         </Card>
 
-        <Card id="plan" className="scroll-mt-20 p-5">
+        <Card id="plan" className="scroll-mt-20 p-5 lg:col-span-2">
           <CardHeader title="מסלול" />
           <div role="radiogroup" aria-label="מסלול" className="mt-4 grid gap-2 sm:grid-cols-2">
             {(

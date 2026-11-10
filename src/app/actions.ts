@@ -207,13 +207,13 @@ export async function setBlockedDates(operatorId: string, slug: string, dates: s
 /* ------------------------------------------------------------------ Admin */
 
 export const setOperatorStatus = async (id: string, status: "active" | "pending" | "suspended" | "rejected", note: string | null) =>
-  rpc("admin_set_operator_status", { p_operator: id, p_status: status, p_note: note }, ["/admin", "/admin/approvals", "/admin/catalog", "/search", "/"]);
+  rpc("admin_set_operator_status", { p_operator: id, p_status: status, p_note: note }, ["/admin", "/admin/approvals", "/admin/people", "/search", "/"]);
 
 export async function setCategoryActive(id: string, active: boolean): Promise<Result> {
   const db = await supabaseServer();
   const { error } = await db.from("categories").update({ active }).eq("id", id);
   if (error) return { ok: false, error: explain(error.message) };
-  revalidatePath("/admin/catalog");
+  revalidatePath("/admin/settings");
   revalidatePath("/search");
   revalidatePath("/");
   return { ok: true };

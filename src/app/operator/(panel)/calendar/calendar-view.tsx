@@ -1,22 +1,28 @@
 "use client";
 
-import Link from "next/link";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { type Booking, type Operator, statusMeta, todayIso } from "@/lib/data";
 import { setBlockedDates } from "@/app/actions";
+import { useStore } from "@/lib/store";
 import { useAction } from "@/components/use-action";
 import { Sheet } from "@/components/sheet";
 import { Badge, Button, ButtonLink, Card, CardHeader, Checkbox, Field, Input, PageTitle, Select, cx } from "@/components/ui";
 
 const monthNames = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
 const dayHeads = ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"];
+const weeklyHours = [
+  ["א׳–ה׳", "15:00", "20:00"],
+  ["שישי", "09:00", "16:00"],
+  ["שבת", "10:00", "18:00"],
+];
 const iso = (y: number, m: number, d: number) => `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 
 export function CalendarView({ op, bookings }: { op: Operator; bookings: Booking[] }) {
   const today = todayIso();
   const [blocked, setBlocked] = useState(op.blockedDates);
   const [run] = useAction();
+  const toast = useStore((s) => s.toast);
   const [ym, setYm] = useState({ y: Number(today.slice(0, 4)), m: Number(today.slice(5, 7)) - 1 });
   const [selected, setSelected] = useState(today);
   const [rangeOpen, setRangeOpen] = useState(false);
@@ -156,7 +162,7 @@ export function CalendarView({ op, bookings }: { op: Operator; bookings: Booking
               {sel.length === 0 && <li className="py-4 text-center text-[15px] text-muted">אין אירועים ביום הזה</li>}
             </ul>
             <div className="mt-4 flex flex-wrap gap-2">
-              {sel.some((b) => b.status === "pending") && <ButtonLink href="/operator/requests">לבקשות של היום</ButtonLink>}
+              {sel.some((b) => b.status === "pending") && <ButtonLink href={`/operator/requests?id=${sel.find((b) => b.status === "pending")!.id}`}>לבקשות של היום</ButtonLink>}
               <Button variant="secondary" onClick={() => toggleBlock(selected)}>
                 {isBlocked(selected) ? "פתיחת היום" : "חסימת היום"}
               </Button>
@@ -165,20 +171,23 @@ export function CalendarView({ op, bookings }: { op: Operator; bookings: Booking
           </Card>
 
           <Card className="p-5">
-            <CardHeader title="שעות פעילות קבועות" />
-            <dl className="mt-2 divide-y divide-line text-[15px]">
-              {[
-                ["א׳–ה׳", "15:00–20:00"],
-                ["שישי", "09:00–16:00"],
-                ["שבת", "10:00–18:00"],
-              ].map(([d, h]) => (
-                <div key={d} className="flex justify-between py-2.5">
-                  <dt>{d}</dt>
-                  <dd className="font-bold tabular">{h}</dd>
-                </div>
-              ))}
-            </dl>
-            <div className="mt-3 grid grid-cols-2 gap-3 border-t border-line pt-3">
+            <CardHeader title="כללי זמינות" sub="לקוחות רואים רק שעות פנויות. אחרי אישור הזמנה, השעה וזמן הנסיעה נחסמים אוטומטית." />
+            <fieldset className="mt-4">
+              <legend className="text-sm font-semibold">שעות פעילות קבועות</legend>
+              <div className="mt-2 grid grid-cols-[56px_1fr_1fr] items-center gap-2">
+                <span aria-hidden />
+                <span aria-hidden className="text-[13px] text-muted">משעה</span>
+                <span aria-hidden className="text-[13px] text-muted">עד שעה</span>
+                {weeklyHours.map(([d, from, to]) => (
+                  <Fragment key={d}>
+                    <span className="text-[15px] font-semibold">{d}</span>
+                    <Input type="time" aria-label={`${d}, משעה`} defaultValue={from} />
+                    <Input type="time" aria-label={`${d}, עד שעה`} defaultValue={to} />
+                  </Fragment>
+                ))}
+              </div>
+            </fieldset>
+            <div className="mt-4 grid grid-cols-2 gap-3 border-t border-line pt-4">
               <Field label="עד כמה אירועים ביום" htmlFor="max-day">
                 <Select id="max-day" value={maxPerDay} onChange={(e) => setMaxPerDay(e.target.value)}>
                   {["1", "2", "3", "4", "5"].map((n) => (
@@ -195,10 +204,9 @@ export function CalendarView({ op, bookings }: { op: Operator; bookings: Booking
               </Field>
             </div>
             <Checkbox className="mt-2" label="סנכרון עם היומן בטלפון" checked={sync} onChange={() => setSync(!sync)} />
-            <p className="text-[13px] leading-relaxed text-muted">לקוחות רואים רק שעות פנויות. אחרי אישור הזמנה, השעה וזמן הנסיעה נחסמים אוטומטית.</p>
-            <Link href="/operator/settings" className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-accent-ink hover:underline">
-              עריכת שעות הפעילות
-            </Link>
+            <Button className="mt-2" variant="secondary" onClick={() => toast("כללי הזמינות נשמרו")}>
+              שמירת כללי הזמינות
+            </Button>
           </Card>
         </div>
       </div>

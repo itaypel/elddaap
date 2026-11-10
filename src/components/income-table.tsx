@@ -4,15 +4,22 @@ import { money } from "@/lib/data";
 import type { IncomeRow } from "@/lib/ops";
 import { Badge } from "./ui";
 
-export function IncomeTable({ rows, payoutDay }: { rows: IncomeRow[]; payoutDay: number }) {
-  if (!rows.length) return <p className="mt-3 text-[15px] text-muted">עוד אין הזמנות שהושלמו. ההכנסות יופיעו כאן אחרי האירוע הראשון.</p>;
+/** Completed bookings by month. The operator reads "net to you"; the admin reads "net to operators". */
+export function IncomeTable({ rows, payoutDay, audience = "operator" }: { rows: IncomeRow[]; payoutDay: number; audience?: "operator" | "admin" }) {
+  if (!rows.length)
+    return (
+      <p className="mt-3 text-[15px] text-muted">
+        {audience === "operator" ? "עוד אין הזמנות שהושלמו. ההכנסות יופיעו כאן אחרי האירוע הראשון." : "עוד אין הזמנות שהושלמו בפלטפורמה."}
+      </p>
+    );
+  const net = audience === "operator" ? "נטו אליכם" : "נטו למפעילים";
   return (
     <div className="-mx-5 mt-3 overflow-x-auto px-5">
       <table className="w-full min-w-[560px] border-collapse text-[15px]">
         <caption className="sr-only">הכנסות לפי חודש</caption>
         <thead>
           <tr className="border-b border-line text-[13px] text-muted">
-            {["חודש", "הזמנות שהושלמו", "ברוטו", "עמלת הפלטפורמה", "נטו אליכם", "העברה"].map((h) => (
+            {["חודש", "הזמנות שהושלמו", "ברוטו", "עמלת הפלטפורמה", net, "העברה"].map((h) => (
               <th key={h} scope="col" className="px-3 py-2.5 text-start font-medium first:ps-0">
                 {h}
               </th>

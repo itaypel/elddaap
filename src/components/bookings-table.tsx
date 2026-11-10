@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { type Booking, money, shortDate, statusMeta } from "@/lib/data";
 import { Badge, cx } from "./ui";
 
@@ -70,7 +69,7 @@ export function BookingsTable({
             return (
               <tr key={b.id} className="border-b border-line last:border-0">
                 {cols.map((c) => (
-                  <td key={c} className={cx("px-3 py-3 first:ps-0", c === "action" && "text-end")}>
+                  <td key={c} className={cx("px-3 py-3 whitespace-nowrap first:ps-0", c === "action" && "text-end")}>
                     {cell[c]}
                   </td>
                 ))}
@@ -87,13 +86,5 @@ export function BookingsTable({
         </tbody>
       </table>
     </div>
-  );
-}
-
-export function RequestLink({ b }: { b: Booking }) {
-  return (
-    <Link href={`/operator/requests?id=${b.id}`} className="text-sm font-semibold text-accent-ink hover:underline">
-      לבקשה
-    </Link>
   );
 }

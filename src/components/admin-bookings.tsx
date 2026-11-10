@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { Search } from "lucide-react";
-import { type Booking, type BookingStatus, statusMeta } from "@/lib/data";
-import { downloadCsv } from "@/lib/ops";
+import { type Booking, type BookingStatus, type Settings, statusMeta } from "@/lib/data";
+import { downloadCsv, incomeByMonth } from "@/lib/ops";
 import { BookingsTable } from "./bookings-table";
+import { IncomeTable } from "./income-table";
 import { Button, Card, CardHeader, Input, Select } from "./ui";
 
-export function AdminBookings({ bookings, commission, limit }: { bookings: Booking[]; commission: number; limit?: number }) {
+/** Every booking on the platform, searchable, with the one bookings export (also the accountant's file). */
+export function AdminBookings({ bookings, commission }: { bookings: Booking[]; commission: number }) {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<"" | BookingStatus>("");
 
@@ -19,27 +21,26 @@ export function AdminBookings({ bookings, commission, limit }: { bookings: Booki
       return hay.includes(q.trim().toLowerCase().replace("#", ""));
     })
     .sort((a, b) => b.id - a.id);
-  const shown = limit ? filtered.slice(0, limit) : filtered;
 
   return (
     <Card className="p-5">
       <CardHeader
-        title="הזמנות ותשלומים"
+        title="כל ההזמנות"
+        sub={filtered.length === bookings.length ? `${bookings.length} הזמנות` : `${filtered.length} מתוך ${bookings.length} הזמנות`}
         action={
-          !limit && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() =>
-                downloadCsv("hafilu-bookings.csv", [
-                  ["הזמנה", "לקוח", "מפעיל", "תאריך", "שעה", "סכום", "עמלה", "סטטוס"],
-                  ...filtered.map((b) => [b.id, b.customerName, b.operator.name, b.date, b.time, b.total, Math.round(b.total * commission), statusMeta[b.status].label]),
-                ])
-              }
-            >
-              ייצוא CSV
-            </Button>
-          )
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={!filtered.length}
+            onClick={() =>
+              downloadCsv("hafilu-bookings.csv", [
+                ["הזמנה", "לקוח", "מפעיל", "תאריך", "שעה", "סכום", "שולם", "עמלה", "סטטוס"],
+                ...filtered.map((b) => [b.id, b.customerName, b.operator.name, b.date, b.time, b.total, b.paid, Math.round(b.total * commission), statusMeta[b.status].label]),
+              ])
+            }
+          >
+            ייצוא CSV
+          </Button>
         }
       />
       <div className="mt-4 flex flex-wrap gap-2">
@@ -57,9 +58,37 @@ export function AdminBookings({ bookings, commission, limit }: { bookings: Booki
         </Select>
       </div>
       <div className="mt-3">
-        <BookingsTable caption="הזמנות ותשלומים" bookings={shown} commission={commission} cols={["id", "customer", "operator", "when", "amount", "commission", "payment", "status"]} />
+        <BookingsTable caption="כל ההזמנות" bookings={filtered} commission={commission} cols={["id", "customer", "operator", "when", "amount", "commission", "payment", "status"]} />
       </div>
-      {limit && filtered.length > limit && <p className="mt-3 text-sm text-muted">מוצגות {limit} מתוך {filtered.length}. כל ההזמנות בעמוד הזמנות ותשלומים.</p>}
+    </Card>
+  );
+}
+
+/** Platform commission and operator payouts by month. */
+export function AdminCommissions({ bookings, settings }: { bookings: Booking[]; settings: Settings }) {
+  const rows = incomeByMonth(bookings, settings.commission, settings.payoutDay);
+  return (
+    <Card className="p-5">
+      <CardHeader
+        title="עמלות והעברות לפי חודש"
+        sub={`עמלה של ${Math.round(settings.commission * 100)}% על הזמנות שהושלמו. ההעברה למפעילים ב־${settings.payoutDay} לחודש שאחרי.`}
+        action={
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={!rows.length}
+            onClick={() =>
+              downloadCsv("hafilu-commissions.csv", [
+                ["חודש", "הזמנות שהושלמו", "ברוטו", "עמלה", "נטו למפעילים", "העברה"],
+                ...rows.map((m) => [m.label, m.completed, m.gross, m.commission, m.net, m.transfer === "done" ? "הועבר" : "מתוכנן"]),
+              ])
+            }
+          >
+            ייצוא CSV
+          </Button>
+        }
+      />
+      <IncomeTable rows={rows} payoutDay={settings.payoutDay} audience="admin" />
     </Card>
   );
 }

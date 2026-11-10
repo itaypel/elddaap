@@ -43,9 +43,10 @@ export function AccountView({ profile }: { profile: Profile }) {
               run(() => updateUsername(username), { success: "שם המשתמש עודכן" });
             }}
           >
-            <Field label="שם משתמש" htmlFor="a-user" hint="3–30 תווים באנגלית, ספרות, נקודה, מקף או קו תחתון">
-              <Input id="a-user" dir="ltr" className="text-end" autoComplete="username" autoCapitalize="none" spellCheck={false} value={username} onChange={(e) => setUsername(e.target.value)} />
-            </Field>
+            <div className="flex flex-col gap-1.5">
+              <Input id="a-user" aria-label="שם משתמש" aria-describedby="a-user-hint" dir="ltr" className="text-end" autoComplete="username" autoCapitalize="none" spellCheck={false} value={username} onChange={(e) => setUsername(e.target.value)} />
+              <p id="a-user-hint" className="text-[13px] text-muted">3–30 תווים באנגלית, ספרות, נקודה, מקף או קו תחתון</p>
+            </div>
             <Button type="submit" className="self-start" disabled={savingName || username.trim().toLowerCase() === (profile.username ?? "")}>
               שמירת שם המשתמש
             </Button>
